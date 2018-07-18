@@ -28,7 +28,7 @@
   ],
   "dependencies": {
     "@firebase/app-types": "0.x",
-    "firebase": "^4.13.1",
+    "firebase": "^5.2.0",
     "react": "^15.6.2",
     "react-dom": "^15.6.1",
     "sort-by": "^1.2.0"
