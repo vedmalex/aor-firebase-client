@@ -64,7 +64,7 @@ export default (config = {}) => {
         auth = await firebase.auth().signInWithEmailAndPassword(username, password)
       }
 
-      return config.handleAuthStateChange(auth, config)
+      return config.handleAuthStateChange(auth.user, config)
     }
 
     return false
