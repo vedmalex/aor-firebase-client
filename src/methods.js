@@ -116,6 +116,7 @@ const getMany = (params, resourceName, resourceData) => {
       }
       return total
     })
+    return { data, ids, total };
   } else if (params.pagination) {
     /** GET_LIST / GET_MANY_REFERENCE */
     let values = []
