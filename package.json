@@ -1,7 +1,7 @@
 {
-  "name": "aor-firebase-client",
-  "version": "0.3.1",
-  "description": "Firebase Client for Admin On Rest",
+  "name": "ra-firebase-client",
+  "version": "1.0.0-0",
+  "description": "Firebase Client for React-admin",
   "main": "lib/index.js",
   "scripts": {
     "test": "jest",
@@ -21,7 +21,7 @@
     "src"
   ],
   "keywords": [
-    "admin-on-rest",
+    "react-admin",
     "react",
     "firebase",
     "rest"
@@ -29,12 +29,12 @@
   "dependencies": {
     "@firebase/app-types": "0.x",
     "firebase": "^5.2.0",
-    "react": "^15.6.2",
-    "react-dom": "^15.6.1",
+    "react": "^16.5.0",
+    "react-dom": "^16.5.0",
     "sort-by": "^1.2.0"
   },
   "devDependencies": {
-    "react-admin": "^2.0",
+    "react-admin": "^2.3.0",
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
     "babel-jest": "^20.0.3",

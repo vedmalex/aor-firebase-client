@@ -1,28 +1,50 @@
 import React from 'react'
-import { Admin, Resource, Delete } from 'admin-on-rest'
-import { RestClient, AuthClient } from 'aor-firebase-client'
+import { Admin, Resource } from 'react-admin'
+import { RestClient, AuthClient } from 'ra-firebase-client'
 
-import { PostList, PostEdit, PostCreate } from './Posts';
-import { UserList } from './Users';
+import { PostList, PostEdit, PostCreate } from './Posts'
+import { UserList } from './Users'
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyAwoZ5Ph6Hx3-DplWzaouqUOnu4lNKeAFQ',
-  authDomain: 'aor-firebase-client.firebaseapp.com',
-  databaseURL: 'https://aor-firebase-client.firebaseio.com',
-  projectId: 'aor-firebase-client',
-  storageBucket: 'aor-firebase-client.appspot.com',
-  messagingSenderId: '1092760245154'
+  apiKey: 'AIzaSyA9tDafh6m3NeK6nArV-PKW6hegaV-cy2A',
+  authDomain: 'disciples-db.firebaseapp.com',
+  databaseURL: 'https://disciples-db.firebaseio.com',
+  projectId: 'disciples-db',
+  storageBucket: 'disciples-db.appspot.com',
+  messagingSenderId: '540696597264'
 }
 
-const trackedResources = ['posts', 'profiles']
+const authConfig = {
+  userProfilePath: 'profiles',
+  userAdminProp: 'superuser'
+}
 
-const shouldUseAuth = !(window && window.location && window.location.search && window.location.search === '?security=0')
+const trackedResources = [
+  {
+    name: 'posts',
+    path: 'posts',
+    isPublic: true
+  },
+  {
+    name: 'profiles',
+    path: 'profiles',
+    isPublic: true
+  }
+]
 
 const App = () => (
-  <Admin restClient={RestClient(trackedResources, firebaseConfig)} authClient={shouldUseAuth ? AuthClient : null} >
-        <Resource name="posts" list={PostList} edit={PostEdit} create={PostCreate} remove={Delete} />
-        <Resource name="profiles" list={UserList} />
+  <Admin
+    dataProvider={RestClient(firebaseConfig, { trackedResources })}
+    authProvider={AuthClient(authConfig)}
+  >
+    <Resource
+      name='posts'
+      list={PostList}
+      edit={PostEdit}
+      create={PostCreate}
+    />
+    <Resource name='profiles' list={UserList} />
   </Admin>
-);
+)
 
-export default App;
+export default App

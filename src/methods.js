@@ -102,6 +102,7 @@ const getOne = (params, resourceName, resourceData) => {
 }
 
 const getMany = (params, resourceName, resourceData) => {
+  debugger
   let ids = []
   let data = []
   let total = 0
