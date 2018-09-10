@@ -1,15 +1,14 @@
-# ra-firebase-client
+# ra-data-firebase
 
 An [react-admin](https://github.com/marmelab/react-admin) client for [Firebase](https://firebase.google.com).
 
 [![npm version](https://badge.fury.io/js/aor-firebase-client.svg)](https://badge.fury.io/js/aor-firebase-client)
-[![CircleCI](https://circleci.com/gh/sidferreira/aor-firebase-client/tree/master.svg?style=shield)](https://circleci.com/gh/sidferreira/aor-firebase-client/tree/master)
-[![CircleCI](https://circleci.com/gh/sidferreira/aor-firebase-client/tree/develop.svg?style=shield)](https://circleci.com/gh/sidferreira/aor-firebase-client/tree/develop)
+s
 
 ## Installation
 
 ```sh
-npm install aor-firebase-client --save
+npm install ra-data-firebase --save
 ```
 
 ## Usage
