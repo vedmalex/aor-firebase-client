@@ -1,5 +1,5 @@
 {
-  "name": "ra-data-client",
+  "name": "ra-data-firebase",
   "version": "1.0.0-0",
   "description": "Firebase dataProvider for React-Admin",
   "main": "lib/index.js",
@@ -41,7 +41,7 @@
   ],
   "dependencies": {
     "@firebase/app-types": "0.x",
-    "firebase": "^5.2.0",
+    "firebase": "^5.4.2",
     "react": "^16.5.0",
     "react-dom": "^16.5.0",
     "sort-by": "^1.2.0"

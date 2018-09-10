@@ -1,10 +1,21 @@
 import * as firebase from 'firebase';
-import sortBy from 'sort-by';
+import * as sortBy from 'sort-by';
 
 import { CREATE } from './reference';
+import { GetOneParams } from './params';
 
-const getImageSize = file => {
-  return new Promise(resolve => {
+export type ImageSize = {
+  width: any;
+  height: any;
+};
+
+export interface StoreData {
+  id?: string;
+  key?: string;
+}
+
+function getImageSize(file) {
+  return new Promise<ImageSize>(resolve => {
     const img = document.createElement('img');
     img.onload = function() {
       resolve({
@@ -14,40 +25,66 @@ const getImageSize = file => {
     };
     img.src = file.src;
   });
-};
+}
+
+// удалять старые файлы если они были удалены из upload-а
 
 const upload = async (
-  fieldName,
-  submitedData,
-  id,
-  resourceName,
-  resourcePath,
+  fieldName: string,
+  submitedData: object,
+  id: string,
+  resourceName: string,
+  resourcePath: string,
 ) => {
-  const file = submitedData[fieldName] && submitedData[fieldName][0];
-  const rawFile = file.rawFile;
+  if (submitedData[fieldName]) {
+    const uploadFileArray = Array.isArray(submitedData[fieldName]);
+    const files = Array.isArray(submitedData[fieldName])
+      ? submitedData[fieldName]
+      : [submitedData[fieldName]];
 
-  const result = {};
-  if (file && rawFile && rawFile.name) {
-    const ref = firebase
-      .storage()
-      .ref()
-      .child(`${resourcePath}/${id}/${fieldName}`);
-    const snapshot = await ref.put(rawFile);
-    result[fieldName] = [{}];
-    result[fieldName][0].uploadedAt = Date.now();
-    result[fieldName][0].src =
-      snapshot.downloadURL.split('?').shift() + '?alt=media';
-    result[fieldName][0].type = rawFile.type;
-    if (rawFile.type.indexOf('image/') === 0) {
-      try {
-        const imageSize = (await getImageSize(file)) as {
-          width: any;
-          height: any;
-        };
-        result[fieldName][0].width = imageSize.width;
-        result[fieldName][0].height = imageSize.height;
-      } catch (e) {
-        console.error(`Failed to get image dimensions`);
+    const result = {};
+
+    if (uploadFileArray) {
+      result[fieldName] = [];
+    }
+
+    files.filter(f => !f.rawFile).forEach(f => {
+      if (uploadFileArray) {
+        result[fieldName][files.indexOf(f)] = f;
+      } else {
+        result[fieldName] = f;
+      }
+    });
+
+    const rawFiles = files.filter(f => f.rawFile);
+    for (let i = 0; i < rawFiles.length; i++) {
+      const file = rawFiles[i];
+      const index = files.indexOf(file);
+      const rawFile = file.rawFile;
+
+      if (file && rawFile && rawFile.name) {
+        const ref = firebase
+          .storage()
+          .ref()
+          .child(`${resourcePath}/${id}/${fieldName}`);
+
+        const snapshot = await ref.put(rawFile);
+        result[fieldName][index].uploadedAt = Date.now();
+        // remove token from url to make it public available
+        //
+        result[fieldName][index].src =
+          (await snapshot.ref.getDownloadURL()).split('?').shift() +
+          '?alt=media';
+        result[fieldName][index].type = rawFile.type;
+        if (rawFile.type.indexOf('image/') === 0) {
+          try {
+            const imageSize = await getImageSize(file);
+            result[fieldName][index].width = imageSize.width;
+            result[fieldName][index].height = imageSize.height;
+          } catch (e) {
+            console.error(`Failed to get image dimensions`);
+          }
+        }
       }
     }
     return result;
@@ -56,11 +93,11 @@ const upload = async (
 };
 
 const save = async (
-  id,
-  data,
-  previous,
-  resourceName,
-  resourcePath,
+  id: string,
+  data: StoreData,
+  previous: object,
+  resourceName: string,
+  resourcePath: string,
   firebaseSaveFilter,
   uploadResults,
   isNew,
@@ -136,7 +173,11 @@ const getItemID = (params, type, resourceName, resourcePath, resourceData) => {
   return itemId;
 };
 
-const getOne = (params, resourceName, resourceData) => {
+const getOne = (
+  params: GetOneParams,
+  resourceName: string,
+  resourceData: object,
+) => {
   if (params.id && resourceData[params.id]) {
     return { data: resourceData[params.id] };
   } else {

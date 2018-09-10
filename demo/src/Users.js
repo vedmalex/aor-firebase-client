@@ -1,3 +1,4 @@
+// @ts-check
 import React from 'react';
 import { List, Datagrid, EmailField, TextField } from 'react-admin';
 

@@ -1,9 +1,10 @@
-import React from 'react'
-import { Admin, Resource } from 'react-admin'
-import { RestClient, AuthClient } from 'ra-firebase-client'
+// @ts-check
+import React from 'react';
+import { Admin, Resource } from 'react-admin';
+import { DataProvider, AuthProvider } from 'ra-data-firebase';
 
-import { PostList, PostEdit, PostCreate } from './Posts'
-import { UserList } from './Users'
+import { PostList, PostEdit, PostCreate } from './Posts';
+import { UserList } from './Users';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyA9tDafh6m3NeK6nArV-PKW6hegaV-cy2A',
@@ -11,40 +12,36 @@ const firebaseConfig = {
   databaseURL: 'https://disciples-db.firebaseio.com',
   projectId: 'disciples-db',
   storageBucket: 'disciples-db.appspot.com',
-  messagingSenderId: '540696597264'
-}
+  messagingSenderId: '540696597264',
+};
 
 const authConfig = {
-  userProfilePath: 'profiles',
-  userAdminProp: 'superuser'
-}
+  userProfilePath: 'profiles/',
+  userAdminProp: 'superuser',
+};
 
 const trackedResources = [
   {
-    name: 'posts',
     path: 'posts',
-    isPublic: true
+    name: 'posts',
+    uploadFields: ['pictures'],
   },
-  {
-    name: 'profiles',
-    path: 'profiles',
-    isPublic: true
-  }
-]
+  'profiles',
+];
 
 const App = () => (
   <Admin
-    dataProvider={RestClient(firebaseConfig, { trackedResources })}
-    authProvider={AuthClient(authConfig)}
+    dataProvider={DataProvider(firebaseConfig, { trackedResources })}
+    authProvider={null}
   >
     <Resource
-      name='posts'
+      name="posts"
       list={PostList}
       edit={PostEdit}
       create={PostCreate}
     />
-    <Resource name='profiles' list={UserList} />
+    <Resource name="profiles" list={UserList} />
   </Admin>
-)
+);
 
-export default App
+export default App;

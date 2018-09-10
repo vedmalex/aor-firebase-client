@@ -1,6 +1,6 @@
 import * as firebase from 'firebase';
 import Methods from './methods';
-
+import { AllParams, GetOneParams, DeleteParams, CreateParams } from './params';
 import {
   GET_LIST,
   GET_ONE,
@@ -103,7 +103,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
       .database()
       .ref(resourcesPaths[name]));
     resourcesData[name] = [];
-
     if (isPublic) {
       subscribeResource(ref, name, resolve);
     } else {
@@ -169,7 +168,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
    * @returns {Promise} the Promise for a REST response
    */
 
-  return async (type, resourceName, params) => {
+  return async (type: string, resourceName: string, params: AllParams) => {
     await resourcesStatus[resourceName];
     let result = null;
     switch (type) {
@@ -185,7 +184,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
 
       case GET_ONE:
         result = await getOne(
-          params,
+          params as GetOneParams,
           resourceName,
           resourcesData[resourceName],
         );
@@ -196,7 +195,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           ? resourcesUploadFields[resourceName]
           : [];
         result = await del(
-          params.id,
+          (params as DeleteParams).id,
           resourceName,
           resourcesPaths[resourceName],
           uploadFields,
@@ -216,7 +215,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           ? resourcesUploadFields[resourceName].map(field =>
               upload(
                 field,
-                params.data,
+                (params as CreateParams).data,
                 itemId,
                 resourceName,
                 resourcesPaths[resourceName],
@@ -227,7 +226,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         const uploadResults = await Promise.all(uploads);
         result = await save(
           itemId,
-          params.data,
+          (params as CreateParams).data,
           currentData,
           resourceName,
           resourcesPaths[resourceName],
