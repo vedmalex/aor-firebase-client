@@ -115,12 +115,15 @@ async function upload(
     if (removeFromStore.length > 0) {
       try {
         await Promise.all(
-          removeFromStore.map(file =>
-            firebase
-              .storage()
-              .ref()
-              .child(file.path)
-              .delete(),
+          removeFromStore.map(
+            file =>
+              file && file.path
+                ? firebase
+                    .storage()
+                    .ref()
+                    .child(file.path)
+                    .delete()
+                : true,
           ),
         );
       } catch (e) {
