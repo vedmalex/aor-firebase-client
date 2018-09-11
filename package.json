@@ -8,8 +8,7 @@
     "build": "tsc",
     "prepare": "npm run build"
   },
-  "contributors": [
-    {
+  "contributors": [{
       "name": "Sid Ferreira",
       "url": "https://github.com/sidferreira"
     },
