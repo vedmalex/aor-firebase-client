@@ -211,18 +211,19 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           resourcesPaths[resourceName],
           resourcesData[resourceName],
         );
+        const currentData = resourcesData[resourceName][itemId] || {};
         const uploads = resourcesUploadFields[resourceName]
           ? resourcesUploadFields[resourceName].map(field =>
               upload(
                 field,
                 (params as CreateParams).data,
+                currentData,
                 itemId,
                 resourceName,
                 resourcesPaths[resourceName],
               ),
             )
           : [];
-        const currentData = resourcesData[resourceName][itemId] || {};
         const uploadResults = await Promise.all(uploads);
         result = await save(
           itemId,

@@ -42,6 +42,7 @@
   "dependencies": {
     "@firebase/app-types": "0.x",
     "firebase": "^5.4.2",
+    "lodash": "^4.17.10",
     "react": "^16.5.0",
     "react-dom": "^16.5.0",
     "sort-by": "^1.2.0"

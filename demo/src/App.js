@@ -24,7 +24,7 @@ const trackedResources = [
   {
     path: 'posts',
     name: 'posts',
-    uploadFields: ['pictures'],
+    uploadFields: ['pictures', 'file'],
   },
   'profiles',
 ];

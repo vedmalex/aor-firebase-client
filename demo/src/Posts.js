@@ -16,6 +16,8 @@ import {
   TextInput,
   ImageInput,
   ImageField,
+  FileInput,
+  FileField,
 } from 'react-admin';
 
 const PostFilter = props => (
@@ -67,6 +69,9 @@ export const PostEdit = props => (
       >
         <ImageField source="src" title="title" />
       </ImageInput>
+      <FileInput source="file" label="Related files" accept="application/pdf">
+        <FileField source="src" title="name" />
+      </FileInput>
     </SimpleForm>
   </Edit>
 );
@@ -85,8 +90,11 @@ export const PostCreate = props => (
       <TextInput source="title" />
       <LongTextInput source="body" />
       <ImageInput source="pictures" label="Related pictures" accept="image/*">
-        <ImageField source="src" title="title" />
+        <ImageField source="src" />
       </ImageInput>
+      <FileInput source="file" label="Related files" accept="application/pdf">
+        <FileField source="src" title="file" />
+      </FileInput>
     </SimpleForm>
   </Create>
 );

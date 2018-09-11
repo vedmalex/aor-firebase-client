@@ -1,6 +1,6 @@
 import * as firebase from 'firebase';
 import * as sortBy from 'sort-by';
-
+import { differenceBy } from 'lodash';
 import { CREATE } from './reference';
 import { GetOneParams } from './params';
 
@@ -27,18 +27,33 @@ function getImageSize(file) {
   });
 }
 
-// удалять старые файлы если они были удалены из upload-а
+export type UploadFile = {
+  uploadedAt: number;
+  src: string;
+  type: string;
+  md5Hash: string;
+  path: string;
+  name: string;
+} & Partial<ImageSize>;
 
-const upload = async (
+// удалять старые файлы если они были удалены из upload-а
+// посмотреть на дубликаты
+
+async function upload(
   fieldName: string,
   submitedData: object,
+  previousData: object,
   id: string,
   resourceName: string,
   resourcePath: string,
-) => {
+) {
   if (submitedData[fieldName]) {
+    const oldFieldArray = Array.isArray(previousData[fieldName]);
+    const oldFiles = oldFieldArray
+      ? previousData[fieldName]
+      : [previousData[fieldName]];
     const uploadFileArray = Array.isArray(submitedData[fieldName]);
-    const files = Array.isArray(submitedData[fieldName])
+    const files = uploadFileArray
       ? submitedData[fieldName]
       : [submitedData[fieldName]];
 
@@ -66,31 +81,61 @@ const upload = async (
         const ref = firebase
           .storage()
           .ref()
-          .child(`${resourcePath}/${id}/${fieldName}`);
+          .child(`${resourcePath}/${id}/${fieldName}/${rawFile.name}`);
 
         const snapshot = await ref.put(rawFile);
-        result[fieldName][index].uploadedAt = Date.now();
+        let curFile: Partial<UploadFile> = uploadFileArray
+          ? (result[fieldName][index] = {})
+          : (result[fieldName] = {});
+        curFile.md5Hash = snapshot.metadata.md5Hash;
+        curFile.path = snapshot.metadata.fullPath;
+        curFile.name = snapshot.metadata.name;
+        curFile.uploadedAt = Date.now();
         // remove token from url to make it public available
         //
-        result[fieldName][index].src =
+        curFile.src =
           (await snapshot.ref.getDownloadURL()).split('?').shift() +
           '?alt=media';
-        result[fieldName][index].type = rawFile.type;
+        curFile.type = rawFile.type;
         if (rawFile.type.indexOf('image/') === 0) {
           try {
             const imageSize = await getImageSize(file);
-            result[fieldName][index].width = imageSize.width;
-            result[fieldName][index].height = imageSize.height;
+            curFile.width = imageSize.width;
+            curFile.height = imageSize.height;
           } catch (e) {
             console.error(`Failed to get image dimensions`);
           }
         }
       }
     }
+    //remove oldFiles && dedupe
+    // добавить метаданные для определения названия файла или имя файла можно определять по url!!!!
+    // файлы передавать в папках
+    const removeFromStore = differenceBy(oldFiles, result[fieldName]);
+    if (removeFromStore.length > 0) {
+      try {
+        await Promise.all(
+          removeFromStore.map(file =>
+            firebase
+              .storage()
+              .ref()
+              .child(file.path)
+              .delete(),
+          ),
+        );
+      } catch (e) {
+        if (e.code && e.code !== 'storage/object-not-found') {
+          console.error(e.code);
+        } else {
+          console.log(e);
+        }
+      }
+    }
+
     return result;
   }
   return false;
-};
+}
 
 const save = async (
   id: string,
@@ -136,12 +181,14 @@ const save = async (
 
 const del = async (id, resourceName, resourcePath, uploadFields) => {
   if (uploadFields.length) {
-    uploadFields.map(fieldName =>
-      firebase
-        .storage()
-        .ref()
-        .child(`${resourcePath}/${id}/${fieldName}`)
-        .delete(),
+    await Promise.all(
+      uploadFields.map(fieldName =>
+        firebase
+          .storage()
+          .ref()
+          .child(`${resourcePath}/${id}/${fieldName}`)
+          .delete(),
+      ),
     );
   }
 
