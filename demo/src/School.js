@@ -1,0 +1,21 @@
+import React from 'react';
+import {
+  Filter,
+  List,
+  Edit,
+  Create,
+  Datagrid,
+  ReferenceField,
+  TextField,
+  EditButton,
+  DisabledInput,
+  LongTextInput,
+  ReferenceInput,
+  SelectInput,
+  SimpleForm,
+  TextInput,
+  ImageInput,
+  ImageField,
+  FileInput,
+  FileField,
+} from 'react-admin';

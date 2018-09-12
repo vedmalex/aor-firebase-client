@@ -111,10 +111,7 @@ async function upload(
     //remove oldFiles && dedupe
     // добавить метаданные для определения названия файла или имя файла можно определять по url!!!!
     // файлы передавать в папках
-    const removeFromStore = [
-      ...differenceBy(oldFiles, result[fieldName], 'src'),
-      ...differenceBy(oldFiles, result[fieldName], 'md5Hash'),
-    ];
+    const removeFromStore = differenceBy(oldFiles, result[fieldName]);
     if (removeFromStore.length > 0) {
       try {
         await Promise.all(
