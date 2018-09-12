@@ -7,12 +7,12 @@ import { PostList, PostEdit, PostCreate } from './Posts';
 import { UserList } from './Users';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyA9tDafh6m3NeK6nArV-PKW6hegaV-cy2A',
-  authDomain: 'disciples-db.firebaseapp.com',
-  databaseURL: 'https://disciples-db.firebaseio.com',
-  projectId: 'disciples-db',
-  storageBucket: 'disciples-db.appspot.com',
-  messagingSenderId: '540696597264',
+  apiKey: 'AIzaSyBLLT5OA7xabMpqfyMr2mOlIVjpnRzyspY',
+  authDomain: 'firestore-rest-test.firebaseapp.com',
+  databaseURL: 'https://firestore-rest-test.firebaseio.com',
+  projectId: 'firestore-rest-test',
+  storageBucket: 'firestore-rest-test.appspot.com',
+  messagingSenderId: '579194619457',
 };
 
 const authConfig = {

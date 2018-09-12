@@ -1,4 +1,6 @@
-# ra-data-firebase
+# ra-data-firestore
+
+A react-admin firebase/firestore dataProvider
 
 An [react-admin](https://github.com/marmelab/react-admin) client for [Firebase](https://firebase.google.com).
 
@@ -8,7 +10,7 @@ s
 ## Installation
 
 ```sh
-npm install ra-data-firebase --save
+npm install ra-data-firestore --save
 ```
 
 ## Usage

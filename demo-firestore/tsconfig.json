@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "allowJs": true,
-    "target": "es5",
+    "target": "es2015",
     "module": "commonjs",
     "lib": ["dom", "esnext"],
     "moduleResolution": "node",
@@ -12,7 +12,8 @@
     "outDir": "./lib",
     "allowSyntheticDefaultImports": false,
     "pretty": true,
-    "removeComments": true
+    "removeComments": true,
+    "jsx": "react"
   },
   "exclude": ["node_modules", "dist"],
   "include": ["src/**/*"]
