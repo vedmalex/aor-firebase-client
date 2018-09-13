@@ -205,6 +205,8 @@ const del = async (id, resourceName, resourcePath, uploadFields) => {
   return { data: { id } };
 };
 
+const delMany = () => {};
+
 const getItemID = (params, type, resourceName, resourcePath, resourceData) => {
   let itemId = params.data.id || params.id || params.data.key || params.key;
   if (!itemId) {
