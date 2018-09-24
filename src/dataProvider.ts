@@ -16,6 +16,7 @@ import {
   UPDATE,
   DELETE,
   DELETE_MANY,
+  EXECUTE,
 } from './reference';
 
 /**
@@ -35,7 +36,9 @@ export type DataConfig = {
   initialQueryTimeout: number;
   timestampFieldNames: {
     createdAt: string;
+    createdBy: string;
     updatedAt: string;
+    updatedBy: string;
   };
   trackedResources: ResourceConfig[];
   firebaseSaveFilter: (data, name?) => any;
@@ -46,8 +49,14 @@ const BaseConfiguration: Partial<DataConfig> = {
   initialQueryTimeout: 10000,
   timestampFieldNames: {
     createdAt: 'createdAt',
+    createdBy: 'createdBy',
     updatedAt: 'updatedAt',
+    updatedBy: 'updatedBy',
   },
+};
+
+export type CustomActionConfig = {
+  [name: string]: (...params) => Promise<any>;
 };
 
 function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
@@ -259,7 +268,9 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           timestampFieldNames,
         );
         return result;
-
+      case EXECUTE: {
+        return;
+      }
       default:
         console.error('Undocumented method: ', type);
         return { data: [] };

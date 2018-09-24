@@ -49,6 +49,8 @@ export type GetManyReferenceParams = {
   filter: FilterQuery;
 };
 
+export type ExecutePayload = any;
+
 export type AllParams =
   | GetOneParams
   | CreateParams
@@ -57,4 +59,5 @@ export type AllParams =
   | DeleteParams
   | DeleteManyParams
   | GetManyParams
-  | GetManyReferenceParams;
+  | GetManyReferenceParams
+  | ExecutePayload;

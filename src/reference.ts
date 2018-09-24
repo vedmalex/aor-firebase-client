@@ -11,3 +11,6 @@ export {
   AUTH_CHECK,
   DELETE_MANY,
 } from 'react-admin';
+
+const EXECUTE = 'RUN_METHOD';
+export { EXECUTE };

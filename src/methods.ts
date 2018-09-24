@@ -4,6 +4,8 @@ import { differenceBy } from 'lodash';
 import { CREATE } from './reference';
 import { GetOneParams } from './params';
 
+import { DiffPatcher } from 'jsondiffpatch';
+
 export type ImageSize = {
   width: any;
   height: any;
@@ -154,6 +156,7 @@ const save = async (
   isNew,
   timestampFieldNames,
 ) => {
+  const currentUser = firebase.auth().currentUser;
   if (uploadResults) {
     uploadResults.map(
       uploadResult =>
@@ -165,9 +168,20 @@ const save = async (
     Object.assign(data, { [timestampFieldNames.createdAt]: Date.now() });
   }
 
+  if (isNew && currentUser) {
+    Object.assign(data, { [timestampFieldNames.createdBy]: currentUser.uid });
+  }
+
+  if (!isNew && currentUser) {
+    Object.assign(data, { [timestampFieldNames.updatedBy]: currentUser.uid });
+  }
+
   data = Object.assign(
+    {},
     previous,
-    { [timestampFieldNames.updatedAt]: Date.now() },
+    {
+      [timestampFieldNames.updatedAt]: Date.now(),
+    },
     data,
   );
 
@@ -176,6 +190,36 @@ const save = async (
   }
   if (!data.id) {
     data.id = id;
+  }
+
+  if (!isNew) {
+    const noDiff = [
+      timestampFieldNames.updatedBy,
+      timestampFieldNames.createdBy,
+      timestampFieldNames.updatedAt,
+      timestampFieldNames.createdAt,
+    ];
+    const patcher = new DiffPatcher({
+      propertyFilter: function(name, context) {
+        return noDiff.indexOf(name) === -1;
+      },
+    });
+    const changes = patcher.diff(previous, data);
+    // https://firebase.google.com/docs/reference/js/firebase.database.Reference#transaction
+    // backup Data
+    await firebase
+      .database()
+      .ref(
+        `backup/${resourcePath}/${data.key}/${
+          data[timestampFieldNames.updatedAt]
+        }`,
+      )
+      .update(firebaseSaveFilter(changes));
+  } else {
+    await firebase
+      .database()
+      .ref(`backup/${resourcePath}/${data.key}/initial`)
+      .update(firebaseSaveFilter(data));
   }
 
   await firebase
@@ -197,6 +241,11 @@ const del = async (id, resourceName, resourcePath, uploadFields) => {
       ),
     );
   }
+
+  await firebase
+    .database()
+    .ref(`backup/${resourcePath}/${id}/${Date.now()}`)
+    .set('deleted');
 
   await firebase
     .database()
