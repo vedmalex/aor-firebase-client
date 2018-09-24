@@ -9,4 +9,5 @@ export {
   AUTH_LOGIN,
   AUTH_LOGOUT,
   AUTH_CHECK,
+  DELETE_MANY,
 } from 'react-admin';

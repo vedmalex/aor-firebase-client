@@ -1,6 +1,12 @@
 import * as firebase from 'firebase';
 import Methods from './methods';
-import { AllParams, GetOneParams, DeleteParams, CreateParams } from './params';
+import {
+  AllParams,
+  GetOneParams,
+  DeleteParams,
+  CreateParams,
+  DeleteManyParams,
+} from './params';
 import {
   GET_LIST,
   GET_ONE,
@@ -9,6 +15,7 @@ import {
   CREATE,
   UPDATE,
   DELETE,
+  DELETE_MANY,
 } from './reference';
 
 /**
@@ -66,6 +73,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   const upload = options.upload || Methods.upload;
   const save = options.save || Methods.save;
   const del = options.del || Methods.del;
+  const delMany = options.delMany || Methods.delMany;
   const getItemID = options.getItemID || Methods.getItemID;
   const getOne = options.getOne || Methods.getOne;
   const getMany = options.getMany || Methods.getMany;
@@ -190,7 +198,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         );
         return result;
 
-      case DELETE:
+      case DELETE: {
         const uploadFields = resourcesUploadFields[resourceName]
           ? resourcesUploadFields[resourceName]
           : [];
@@ -201,6 +209,20 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           uploadFields,
         );
         return result;
+      }
+
+      case DELETE_MANY: {
+        const uploadFields = resourcesUploadFields[resourceName]
+          ? resourcesUploadFields[resourceName]
+          : [];
+        result = await delMany(
+          (params as DeleteManyParams).ids,
+          resourceName,
+          resourcesPaths[resourceName],
+          uploadFields,
+        );
+        return result;
+      }
 
       case UPDATE:
       case CREATE:

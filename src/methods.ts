@@ -205,7 +205,12 @@ const del = async (id, resourceName, resourcePath, uploadFields) => {
   return { data: { id } };
 };
 
-const delMany = () => {};
+const delMany = async (ids, resourceName, resourcePath, uploadFields) => {
+  const data = (await Promise.all(
+    ids.map(id => del(id, resourceName, resourcePath, uploadFields)),
+  )).map((r: { data: { id: any } }) => r.data.id);
+  return { data };
+};
 
 const getItemID = (params, type, resourceName, resourcePath, resourceData) => {
   let itemId = params.data.id || params.id || params.data.key || params.key;
@@ -313,6 +318,7 @@ export default {
   upload,
   save,
   del,
+  delMany,
   getItemID,
   getOne,
   getMany,
