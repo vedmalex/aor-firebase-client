@@ -3,8 +3,8 @@ import * as sortBy from 'sort-by';
 import { differenceBy } from 'lodash';
 import { CREATE } from './reference';
 import { GetOneParams } from './params';
-
 import { DiffPatcher } from 'jsondiffpatch';
+import { ResourceConfig } from './dataProvider';
 
 export type ImageSize = {
   width: any;
@@ -155,7 +155,11 @@ const save = async (
   uploadResults,
   isNew,
   timestampFieldNames,
+  patcher: DiffPatcher,
+  auditResource: string,
+  resourceConfig: ResourceConfig,
 ) => {
+  const prevCopy = patcher.clone(previous);
   const currentUser = firebase.auth().currentUser;
   if (uploadResults) {
     uploadResults.map(
@@ -176,14 +180,9 @@ const save = async (
     Object.assign(data, { [timestampFieldNames.updatedBy]: currentUser.uid });
   }
 
-  data = Object.assign(
-    {},
-    previous,
-    {
-      [timestampFieldNames.updatedAt]: Date.now(),
-    },
-    data,
-  );
+  data = Object.assign(previous, data, {
+    [timestampFieldNames.updatedAt]: Date.now(),
+  });
 
   if (!data.key) {
     data.key = id;
@@ -192,34 +191,26 @@ const save = async (
     data.id = id;
   }
 
-  if (!isNew) {
-    const noDiff = [
-      timestampFieldNames.updatedBy,
-      timestampFieldNames.createdBy,
-      timestampFieldNames.updatedAt,
-      timestampFieldNames.createdAt,
-    ];
-    const patcher = new DiffPatcher({
-      propertyFilter: function(name, context) {
-        return noDiff.indexOf(name) === -1;
-      },
-    });
-    const changes = patcher.diff(previous, data);
-    // https://firebase.google.com/docs/reference/js/firebase.database.Reference#transaction
-    // backup Data
-    await firebase
-      .database()
-      .ref(
-        `backup/${resourcePath}/${data.key}/${
-          data[timestampFieldNames.updatedAt]
-        }`,
-      )
-      .update(firebaseSaveFilter(changes));
-  } else {
-    await firebase
-      .database()
-      .ref(`backup/${resourcePath}/${data.key}/initial`)
-      .update(firebaseSaveFilter(data));
+  if (resourceConfig.audit) {
+    if (!isNew) {
+      const changes = patcher.diff(firebaseSaveFilter(prevCopy), data);
+      // https://firebase.google.com/docs/reference/js/firebase.database.Reference#transaction
+      // backup Data
+      await firebase
+        .database()
+        .ref(
+          `${auditResource}/${resourcePath}/${data.key}/${
+            data[timestampFieldNames.updatedAt]
+          }`,
+        )
+        .update(changes);
+    } else {
+      const changes = patcher.diff({}, firebaseSaveFilter(data));
+      await firebase
+        .database()
+        .ref(`${auditResource}/${resourcePath}/${data.key}/${Date.now()}`)
+        .update(changes);
+    }
   }
 
   await firebase
@@ -229,7 +220,17 @@ const save = async (
   return { data };
 };
 
-const del = async (id, resourceName, resourcePath, uploadFields) => {
+const del = async (
+  id,
+  resourceName,
+  resourcePath,
+  resourceData,
+  uploadFields,
+  patcher: DiffPatcher,
+  auditResource: string,
+  resourceConfig: ResourceConfig,
+  firebaseSaveFilter: (data) => any,
+) => {
   if (uploadFields.length) {
     await Promise.all(
       uploadFields.map(fieldName =>
@@ -242,11 +243,12 @@ const del = async (id, resourceName, resourcePath, uploadFields) => {
     );
   }
 
-  await firebase
-    .database()
-    .ref(`backup/${resourcePath}/${id}/${Date.now()}`)
-    .set('deleted');
-
+  if (resourceConfig.audit) {
+    await firebase
+      .database()
+      .ref(`${auditResource}/${resourcePath}/${id}/${Date.now()}`)
+      .set(patcher.diff(firebaseSaveFilter(resourceData[id]), {}));
+  }
   await firebase
     .database()
     .ref(`${resourcePath}/${id}`)
@@ -254,9 +256,31 @@ const del = async (id, resourceName, resourcePath, uploadFields) => {
   return { data: { id } };
 };
 
-const delMany = async (ids, resourceName, resourcePath, uploadFields) => {
+const delMany = async (
+  ids,
+  resourceName,
+  resourcePath,
+  resourceData,
+  uploadFields,
+  patcher: DiffPatcher,
+  auditResource: string,
+  resourceConfig: ResourceConfig,
+  firebaseSaveFilter: (data) => any,
+) => {
   const data = (await Promise.all(
-    ids.map(id => del(id, resourceName, resourcePath, uploadFields)),
+    ids.map(id =>
+      del(
+        id,
+        resourceName,
+        resourcePath,
+        resourceData,
+        uploadFields,
+        patcher,
+        auditResource,
+        resourceConfig,
+        firebaseSaveFilter,
+      ),
+    ),
   )).map((r: { data: { id: any } }) => r.data.id);
   return { data };
 };

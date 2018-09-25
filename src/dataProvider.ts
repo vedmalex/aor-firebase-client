@@ -18,6 +18,8 @@ import {
   DELETE_MANY,
   EXECUTE,
 } from './reference';
+import { defaultsDeep } from 'lodash';
+import { DiffPatcher } from 'jsondiffpatch';
 
 /**
  * @param {string[]|Object[]} trackedResources Array of resource names or array of Objects containing name and
@@ -26,6 +28,7 @@ import {
  */
 
 export interface ResourceConfig {
+  audit: boolean;
   name: string;
   path: string;
   isPublic?: boolean;
@@ -40,6 +43,7 @@ export type DataConfig = {
     updatedAt: string;
     updatedBy: string;
   };
+  auditResource: string;
   trackedResources: ResourceConfig[];
   firebaseSaveFilter: (data, name?) => any;
   firebaseGetFilter: (data, name?) => any;
@@ -53,6 +57,7 @@ const BaseConfiguration: Partial<DataConfig> = {
     updatedAt: 'updatedAt',
     updatedBy: 'updatedBy',
   },
+  auditResource: 'backup',
 };
 
 export type CustomActionConfig = {
@@ -60,12 +65,26 @@ export type CustomActionConfig = {
 };
 
 function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
-  options = Object.assign({}, BaseConfiguration, options);
+  options = defaultsDeep(options, BaseConfiguration);
   const {
     timestampFieldNames,
     trackedResources,
     initialQueryTimeout,
+    auditResource,
   } = options;
+
+  const noDiff = [
+    timestampFieldNames.updatedBy,
+    timestampFieldNames.createdBy,
+    timestampFieldNames.updatedAt,
+    timestampFieldNames.createdAt,
+  ];
+
+  const patcher = new DiffPatcher({
+    propertyFilter: function(name, context) {
+      return noDiff.indexOf(name) === -1;
+    },
+  });
 
   const resourcesStatus = {};
   const resourcesReferences = {};
@@ -101,8 +120,16 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         name: resource,
         path: resource,
         uploadFields: [],
+        audit: true,
       };
       trackedResources[index] = resource;
+    } else {
+      defaultsDeep(resource, {
+        name: resource.name || resource.path,
+        path: resource.path || resource.name,
+        uploadFields: [],
+        audit: true,
+      });
     }
 
     const { name, path, uploadFields } = resource;
@@ -215,7 +242,12 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           (params as DeleteParams).id,
           resourceName,
           resourcesPaths[resourceName],
+          resourcesData[resourceName],
           uploadFields,
+          patcher,
+          auditResource,
+          trackedResources[resourceName],
+          firebaseSaveFilter,
         );
         return result;
       }
@@ -228,13 +260,18 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           (params as DeleteManyParams).ids,
           resourceName,
           resourcesPaths[resourceName],
+          resourcesData[resourceName],
           uploadFields,
+          patcher,
+          auditResource,
+          trackedResources[resourceName],
+          firebaseSaveFilter,
         );
         return result;
       }
 
       case UPDATE:
-      case CREATE:
+      case CREATE: {
         let itemId = getItemID(
           params,
           type,
@@ -266,8 +303,12 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           uploadResults,
           type === CREATE,
           timestampFieldNames,
+          patcher,
+          auditResource,
+          trackedResources[resourceName],
         );
         return result;
+      }
       case EXECUTE: {
         return;
       }
