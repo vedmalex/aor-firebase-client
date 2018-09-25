@@ -73,6 +73,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     auditResource,
   } = options;
 
+  const trackedResourcesIndex = {};
   const noDiff = [timestampFieldNames.updatedAt, timestampFieldNames.createdAt];
 
   const patcher = new DiffPatcher({
@@ -126,8 +127,8 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         audit: true,
       });
     }
-
     const { name, path, uploadFields } = resource;
+    trackedResourcesIndex[name] = index;
 
     if (!resource.name) {
       throw new Error(`name is missing from resource ${resource}`);
@@ -241,7 +242,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           uploadFields,
           patcher,
           auditResource,
-          trackedResources[resourceName],
+          trackedResources[trackedResourcesIndex[resourceName]],
           firebaseSaveFilter,
         );
         return result;
@@ -259,7 +260,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           uploadFields,
           patcher,
           auditResource,
-          trackedResources[resourceName],
+          trackedResources[trackedResourcesIndex[resourceName]],
           firebaseSaveFilter,
         );
         return result;
@@ -300,7 +301,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           timestampFieldNames,
           patcher,
           auditResource,
-          trackedResources[resourceName],
+          trackedResources[trackedResourcesIndex[resourceName]],
         );
         return result;
       }

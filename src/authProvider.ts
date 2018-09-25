@@ -30,7 +30,7 @@ const baseConfig: AuthConfig = {
         .ref(config.userProfilePath + auth.uid)
         .once('value');
       const profile = snapshot.val();
-      debugger;
+
       if (profile && profile[config.userAdminProp]) {
         const firebaseToken = await auth.getIdToken();
         let user = { auth, profile, firebaseToken };
