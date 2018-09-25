@@ -1,10 +1,10 @@
-import * as firebase from 'firebase';
-import * as sortBy from 'sort-by';
-import { differenceBy } from 'lodash';
-import { CREATE } from './reference';
-import { GetOneParams } from './params';
-import { DiffPatcher } from 'jsondiffpatch';
-import { ResourceConfig } from './dataProvider';
+import * as firebase from "firebase";
+import * as sortBy from "sort-by";
+import { differenceBy } from "lodash";
+import { CREATE } from "./reference";
+import { GetOneParams } from "./params";
+import { DiffPatcher } from "jsondiffpatch";
+import { ResourceConfig } from "./dataProvider";
 
 export type ImageSize = {
   width: any;
@@ -18,11 +18,11 @@ export interface StoreData {
 
 function getImageSize(file) {
   return new Promise<ImageSize>(resolve => {
-    const img = document.createElement('img');
+    const img = document.createElement("img");
     img.onload = function() {
       resolve({
         width: (this as HTMLImageElement).width,
-        height: (this as HTMLImageElement).height,
+        height: (this as HTMLImageElement).height
       });
     };
     img.src = file.src;
@@ -43,21 +43,21 @@ export type UploadFile = {
 
 async function upload(
   fieldName: string,
-  submitedData: object,
+  submittedData: object,
   previousData: object,
   id: string,
   resourceName: string,
-  resourcePath: string,
+  resourcePath: string
 ) {
-  if (submitedData[fieldName]) {
+  if (submittedData[fieldName]) {
     const oldFieldArray = Array.isArray(previousData[fieldName]);
     const oldFiles = oldFieldArray
       ? previousData[fieldName]
       : [previousData[fieldName]];
-    const uploadFileArray = Array.isArray(submitedData[fieldName]);
+    const uploadFileArray = Array.isArray(submittedData[fieldName]);
     const files = uploadFileArray
-      ? submitedData[fieldName]
-      : [submitedData[fieldName]];
+      ? submittedData[fieldName]
+      : [submittedData[fieldName]];
 
     const result = {};
 
@@ -96,10 +96,10 @@ async function upload(
         // remove token from url to make it public available
         //
         curFile.src =
-          (await snapshot.ref.getDownloadURL()).split('?').shift() +
-          '?alt=media';
+          (await snapshot.ref.getDownloadURL()).split("?").shift() +
+          "?alt=media";
         curFile.type = rawFile.type;
-        if (rawFile.type.indexOf('image/') === 0) {
+        if (rawFile.type.indexOf("image/") === 0) {
           try {
             const imageSize = await getImageSize(file);
             curFile.width = imageSize.width;
@@ -114,8 +114,8 @@ async function upload(
     // добавить метаданные для определения названия файла или имя файла можно определять по url!!!!
     // файлы передавать в папках
     const removeFromStore = [
-      ...differenceBy(oldFiles, result[fieldName], 'src'),
-      ...differenceBy(oldFiles, result[fieldName], 'md5Hash'),
+      ...differenceBy(oldFiles, result[fieldName], "src"),
+      ...differenceBy(oldFiles, result[fieldName], "md5Hash")
     ];
     if (removeFromStore.length > 0) {
       try {
@@ -128,11 +128,11 @@ async function upload(
                     .ref()
                     .child(file.path)
                     .delete()
-                : true,
-          ),
+                : true
+          )
         );
       } catch (e) {
-        if (e.code && e.code !== 'storage/object-not-found') {
+        if (e.code && e.code !== "storage/object-not-found") {
           console.error(e.code);
         } else {
           console.log(e);
@@ -157,14 +157,13 @@ const save = async (
   timestampFieldNames,
   patcher: DiffPatcher,
   auditResource: string,
-  resourceConfig: ResourceConfig,
+  resourceConfig: ResourceConfig
 ) => {
   const prevCopy = patcher.clone(previous);
   const currentUser = firebase.auth().currentUser;
   if (uploadResults) {
     uploadResults.map(
-      uploadResult =>
-        uploadResult ? Object.assign(data, uploadResult) : false,
+      uploadResult => (uploadResult ? Object.assign(data, uploadResult) : false)
     );
   }
 
@@ -181,7 +180,7 @@ const save = async (
   }
 
   data = Object.assign(previous, data, {
-    [timestampFieldNames.updatedAt]: Date.now(),
+    [timestampFieldNames.updatedAt]: Date.now()
   });
 
   if (!data.key) {
@@ -193,7 +192,18 @@ const save = async (
 
   if (resourceConfig.audit) {
     if (!isNew) {
-      const changes = patcher.diff(firebaseSaveFilter(prevCopy), data);
+      const exist = await firebase
+        .database()
+        .ref(
+          `${auditResource}/${resourcePath}/${data.key}/${
+            data[timestampFieldNames.updatedAt]
+          }`
+        )
+        .once("value");
+
+      const changes = exist.val()
+        ? patcher.diff(firebaseSaveFilter(prevCopy), data)
+        : patcher.diff({}, firebaseSaveFilter(data));
       // https://firebase.google.com/docs/reference/js/firebase.database.Reference#transaction
       // backup Data
       await firebase
@@ -201,7 +211,7 @@ const save = async (
         .ref(
           `${auditResource}/${resourcePath}/${data.key}/${
             data[timestampFieldNames.updatedAt]
-          }`,
+          }`
         )
         .update(changes);
     } else {
@@ -229,7 +239,7 @@ const del = async (
   patcher: DiffPatcher,
   auditResource: string,
   resourceConfig: ResourceConfig,
-  firebaseSaveFilter: (data) => any,
+  firebaseSaveFilter: (data) => any
 ) => {
   if (uploadFields.length) {
     await Promise.all(
@@ -238,8 +248,8 @@ const del = async (
           .storage()
           .ref()
           .child(`${resourcePath}/${id}/${fieldName}`)
-          .delete(),
-      ),
+          .delete()
+      )
     );
   }
 
@@ -265,7 +275,7 @@ const delMany = async (
   patcher: DiffPatcher,
   auditResource: string,
   resourceConfig: ResourceConfig,
-  firebaseSaveFilter: (data) => any,
+  firebaseSaveFilter: (data) => any
 ) => {
   const data = (await Promise.all(
     ids.map(id =>
@@ -278,9 +288,9 @@ const delMany = async (
         patcher,
         auditResource,
         resourceConfig,
-        firebaseSaveFilter,
-      ),
-    ),
+        firebaseSaveFilter
+      )
+    )
   )).map((r: { data: { id: any } }) => r.data.id);
   return { data };
 };
@@ -296,11 +306,11 @@ const getItemID = (params, type, resourceName, resourcePath, resourceData) => {
   }
 
   if (!itemId) {
-    throw new Error('ID is required');
+    throw new Error("ID is required");
   }
 
   if (resourceData && resourceData[itemId] && type === CREATE) {
-    throw new Error('ID already in use');
+    throw new Error("ID already in use");
   }
 
   return itemId;
@@ -309,12 +319,12 @@ const getItemID = (params, type, resourceName, resourcePath, resourceData) => {
 const getOne = (
   params: GetOneParams,
   resourceName: string,
-  resourceData: object,
+  resourceData: object
 ) => {
   if (params.id && resourceData[params.id]) {
     return { data: resourceData[params.id] };
   } else {
-    throw new Error('Key not found');
+    throw new Error("Key not found");
   }
 };
 
@@ -352,10 +362,10 @@ const getMany = (params, resourceName, resourceData) => {
         let filterIndex = 0;
         while (filterIndex < filterKeys.length) {
           let property = filterKeys[filterIndex];
-          if (property !== 'q' && value[property] !== filter[property]) {
+          if (property !== "q" && value[property] !== filter[property]) {
             return filterIndex;
-          } else if (property === 'q') {
-            if (JSON.stringify(value).indexOf(filter['q']) === -1) {
+          } else if (property === "q") {
+            if (JSON.stringify(value).indexOf(filter["q"]) === -1) {
               return filterIndex;
             }
           }
@@ -370,7 +380,7 @@ const getMany = (params, resourceName, resourceData) => {
 
     if (params.sort) {
       values.sort(
-        sortBy(`${params.sort.order === 'ASC' ? '-' : ''}${params.sort.field}`),
+        sortBy(`${params.sort.order === "ASC" ? "-" : ""}${params.sort.field}`)
       );
     }
 
@@ -383,7 +393,7 @@ const getMany = (params, resourceName, resourceData) => {
     total = values.length;
     return { data, ids, total };
   } else {
-    throw new Error('Error processing request');
+    throw new Error("Error processing request");
   }
 };
 
@@ -394,5 +404,5 @@ export default {
   delMany,
   getItemID,
   getOne,
-  getMany,
+  getMany
 };
