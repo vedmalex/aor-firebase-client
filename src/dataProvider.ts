@@ -35,18 +35,21 @@ export interface ResourceConfig {
   uploadFields: string[];
 }
 
+export type SystemFieldsConfigs = {
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
 export type DataConfig = {
   initialQueryTimeout: number;
-  timestampFieldNames: {
-    createdAt: string;
-    createdBy: string;
-    updatedAt: string;
-    updatedBy: string;
-  };
-  auditResource: string;
+  timestampFieldNames: SystemFieldsConfigs;
+  auditResource?: string;
   trackedResources: ResourceConfig[];
   firebaseSaveFilter: (data, name?) => any;
   firebaseGetFilter: (data, name?) => any;
+  userActions?: CustomActionConfig;
 } & typeof Methods;
 
 const BaseConfiguration: Partial<DataConfig> = {
@@ -58,10 +61,34 @@ const BaseConfiguration: Partial<DataConfig> = {
     updatedBy: 'updatedBy',
   },
   auditResource: 'backup',
+  userActions: {},
 };
 
 export type CustomActionConfig = {
-  [name: string]: (...params) => Promise<any>;
+  [name: string]: (params, context) => Promise<any>;
+};
+
+export type ResourceStore = {
+  [key: string]: { [field: string]: any; id: string; key: string };
+};
+
+export type ResourceDataStore = {
+  [resource: string]: ResourceStore;
+};
+
+export type ExecutionContext = {
+  patcher: DiffPatcher;
+  dataProvider: (
+    type: string,
+    resourceName: string,
+    params: AllParams,
+  ) => Promise<any>;
+  resourcesData: ResourceDataStore;
+  resourcesPaths: { [resource: string]: string };
+  resourcesStatus: Promise<any>;
+  userActions: CustomActionConfig;
+  auditResource: string;
+  timestampFieldNames: SystemFieldsConfigs;
 };
 
 function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
@@ -71,6 +98,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     trackedResources,
     initialQueryTimeout,
     auditResource,
+    userActions,
   } = options;
 
   const trackedResourcesIndex = {};
@@ -208,7 +236,11 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
    * @returns {Promise} the Promise for a REST response
    */
 
-  return async (type: string, resourceName: string, params: AllParams) => {
+  const dataProvider = async (
+    type: string,
+    resourceName: string,
+    params: AllParams,
+  ) => {
     await resourcesStatus[resourceName];
     let result = null;
     switch (type) {
@@ -306,13 +338,27 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         return result;
       }
       case EXECUTE: {
-        return;
+        if (userActions && userActions.hasOwnProperty(resourceName)) {
+          await userActions[resourceName](params, {
+            patcher,
+            dataProvider,
+            resourcesData,
+            resourcesPaths,
+            resourcesStatus,
+            userActions,
+            auditResource,
+            timestampFieldNames,
+          });
+        } else {
+          return;
+        }
       }
       default:
         console.error('Undocumented method: ', type);
         return { data: [] };
     }
   };
+  return dataProvider;
 }
 
 export default dataConfig;

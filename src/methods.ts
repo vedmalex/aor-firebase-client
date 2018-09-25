@@ -1,10 +1,11 @@
 import * as firebase from 'firebase';
 import * as sortBy from 'sort-by';
-import { differenceBy } from 'lodash';
+import { differenceBy, set, get } from 'lodash';
 import { CREATE } from './reference';
 import { GetOneParams } from './params';
 import { DiffPatcher } from 'jsondiffpatch';
-import { ResourceConfig } from './dataProvider';
+import { ResourceConfig, ResourceStore } from './dataProvider';
+import { FilterData } from './filter';
 
 export type ImageSize = {
   width: any;
@@ -318,7 +319,23 @@ const getOne = (
   }
 };
 
-const getMany = (params, resourceName, resourceData) => {
+const PrepareFilter = args => {
+  const filter = Object.keys(args).reduce((acc, key) => {
+    if (key === 'ids') {
+      return { ...acc, id: { in: args[key] } };
+    }
+    if (key === 'q') {
+      return {
+        ...acc,
+        or: [{ '*': { imatch: args[key] } }],
+      };
+    }
+    return set(acc, key.replace('-', '.'), args[key]);
+  }, {});
+  return FilterData.create(filter);
+};
+
+const getMany = (params, resourceName, resourceData: ResourceStore) => {
   let ids = [];
   let data = [];
   let total = 0;
@@ -336,37 +353,18 @@ const getMany = (params, resourceName, resourceData) => {
     return { data, ids, total };
   } else if (params.pagination) {
     /** GET_LIST / GET_MANY_REFERENCE */
-    let values = [];
+    // let values = [];
 
     // Copy the filter params so we can modify for GET_MANY_REFERENCE support.
-    const filter = Object.assign({}, params.filter);
+    const filter = params.filter;
 
     if (params.target && params.id) {
       filter[params.target] = params.id;
     }
 
-    const filterKeys = Object.keys(filter);
-    /* TODO Must have a better way */
-    if (filterKeys.length) {
-      Object.values(resourceData).map(value => {
-        let filterIndex = 0;
-        while (filterIndex < filterKeys.length) {
-          let property = filterKeys[filterIndex];
-          if (property !== 'q' && value[property] !== filter[property]) {
-            return filterIndex;
-          } else if (property === 'q') {
-            if (JSON.stringify(value).indexOf(filter['q']) === -1) {
-              return filterIndex;
-            }
-          }
-          filterIndex++;
-        }
-        values.push(value);
-        return filterIndex;
-      });
-    } else {
-      values = Object.values(resourceData);
-    }
+    const values: any[] = Object.values(resourceData).filter(
+      PrepareFilter(filter),
+    );
 
     if (params.sort) {
       values.sort(
