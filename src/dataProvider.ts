@@ -73,12 +73,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     auditResource,
   } = options;
 
-  const noDiff = [
-    timestampFieldNames.updatedBy,
-    timestampFieldNames.createdBy,
-    timestampFieldNames.updatedAt,
-    timestampFieldNames.createdAt,
-  ];
+  const noDiff = [timestampFieldNames.updatedAt, timestampFieldNames.createdAt];
 
   const patcher = new DiffPatcher({
     propertyFilter: function(name, context) {
