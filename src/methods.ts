@@ -44,21 +44,21 @@ export type UploadFile = {
 
 async function upload(
   fieldName: string,
-  submitedData: object,
+  submittedData: object,
   previousData: object,
   id: string,
   resourceName: string,
   resourcePath: string,
 ) {
-  if (submitedData[fieldName]) {
+  if (submittedData[fieldName]) {
     const oldFieldArray = Array.isArray(previousData[fieldName]);
     const oldFiles = oldFieldArray
       ? previousData[fieldName]
       : [previousData[fieldName]];
-    const uploadFileArray = Array.isArray(submitedData[fieldName]);
+    const uploadFileArray = Array.isArray(submittedData[fieldName]);
     const files = uploadFileArray
-      ? submitedData[fieldName]
-      : [submitedData[fieldName]];
+      ? submittedData[fieldName]
+      : [submittedData[fieldName]];
 
     const result = {};
 
@@ -194,7 +194,18 @@ const save = async (
 
   if (resourceConfig.audit) {
     if (!isNew) {
-      const changes = patcher.diff(firebaseSaveFilter(prevCopy), data);
+      const exist = await firebase
+        .database()
+        .ref(
+          `${auditResource}/${resourcePath}/${data.key}/${
+            data[timestampFieldNames.updatedAt]
+          }`,
+        )
+        .once('value');
+
+      const changes = exist.val()
+        ? patcher.diff(firebaseSaveFilter(prevCopy), data)
+        : patcher.diff({}, firebaseSaveFilter(data));
       // https://firebase.google.com/docs/reference/js/firebase.database.Reference#transaction
       // backup Data
       await firebase
