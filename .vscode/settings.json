@@ -1,0 +1,32 @@
+{
+  "terminal.integrated.shell.osx": "/usr/local/bin/zsh",
+  "editor.tabSize": 2,
+  "editor.formatOnSave": true,
+  "git.confirmSync": false,
+  "workbench.startupEditor": "newUntitledFile",
+  "editor.codeLens": true,
+  "editor.rulers": [80, 120],
+  "prettier.singleQuote": true,
+  "prettier.trailingComma": "all",
+  "cSpell.language": "en,ru",
+  "cSpell.userWords": [
+    "IGQL",
+    "consts",
+    "isomorfic",
+    "mimetype",
+    "pubsub",
+    "todos",
+    "Бхагавад",
+    "мантры"
+  ],
+  "git.autofetch": true,
+  "window.zoomLevel": 1,
+  "breadcrumbs.enabled": true,
+  "files.associations": {
+    "*.js": "javascriptreact"
+  },
+  "workbench.iconTheme": "vscode-icons",
+  "editor.quickSuggestions": {
+    "strings": true
+  }
+}
