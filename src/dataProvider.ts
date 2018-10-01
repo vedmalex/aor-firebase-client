@@ -1,12 +1,12 @@
-import * as firebase from "firebase";
-import Methods from "./methods";
+import * as firebase from 'firebase';
+import Methods from './methods';
 import {
   AllParams,
   GetOneParams,
   DeleteParams,
   CreateParams,
-  DeleteManyParams
-} from "./params";
+  DeleteManyParams,
+} from './params';
 import {
   GET_LIST,
   GET_ONE,
@@ -16,10 +16,10 @@ import {
   UPDATE,
   DELETE,
   DELETE_MANY,
-  EXECUTE
-} from "./reference";
-import { defaultsDeep } from "lodash";
-import { DiffPatcher } from "jsondiffpatch";
+  EXECUTE,
+} from './reference';
+import { defaultsDeep } from 'lodash';
+import { DiffPatcher } from 'jsondiffpatch';
 
 /**
  * @param {string[]|Object[]} trackedResources Array of resource names or array of Objects containing name and
@@ -55,13 +55,13 @@ export type DataConfig = {
 const BaseConfiguration: Partial<DataConfig> = {
   initialQueryTimeout: 10000,
   timestampFieldNames: {
-    createdAt: "createdAt",
-    createdBy: "createdBy",
-    updatedAt: "updatedAt",
-    updatedBy: "updatedBy"
+    createdAt: 'createdAt',
+    createdBy: 'createdBy',
+    updatedAt: 'updatedAt',
+    updatedBy: 'updatedBy',
   },
-  auditResource: "backup",
-  userActions: {}
+  auditResource: 'backup',
+  userActions: {},
 };
 
 export type CustomActionConfig = {
@@ -81,7 +81,7 @@ export type ExecutionContext = {
   dataProvider: (
     type: string,
     resourceName: string,
-    params: AllParams
+    params: AllParams,
   ) => Promise<any>;
   resourcesData: ResourceDataStore;
   resourcesPaths: { [resource: string]: string };
@@ -98,7 +98,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     trackedResources,
     initialQueryTimeout,
     auditResource,
-    userActions
+    userActions,
   } = options;
 
   const trackedResourcesIndex = {};
@@ -107,7 +107,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   const patcher = new DiffPatcher({
     propertyFilter: function(name, context) {
       return noDiff.indexOf(name) === -1;
-    }
+    },
   });
 
   const resourcesStatus = {};
@@ -139,12 +139,12 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
 
   // Sanitize Resources
   trackedResources.map((resource, index) => {
-    if (typeof resource === "string") {
+    if (typeof resource === 'string') {
       resource = {
         name: resource,
         path: resource,
         uploadFields: [],
-        audit: true
+        audit: true,
       };
       trackedResources[index] = resource;
     } else {
@@ -152,7 +152,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         name: resource.name || resource.path,
         path: resource.path || resource.name,
         uploadFields: [],
-        audit: true
+        audit: true,
       });
     }
     const { name, path, uploadFields } = resource;
@@ -184,7 +184,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   };
 
   const subscribeResource = (ref, name, resolve) => {
-    ref.once("value", function(childSnapshot) {
+    ref.once('value', function(childSnapshot) {
       /** Uses "value" to fetch initial data. Avoid the AOR to show no results */
       if (childSnapshot.key === name) {
         const entries = childSnapshot.val() || {};
@@ -198,34 +198,34 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         resolve();
       }
     });
-    ref.on("child_added", function(childSnapshot) {
+    ref.on('child_added', function(childSnapshot) {
       resourcesData[name][childSnapshot.key] = firebaseGetFilter(
         Object.assign(
           {},
           {
             id: childSnapshot.key,
-            key: childSnapshot.key
+            key: childSnapshot.key,
           },
-          childSnapshot.val()
+          childSnapshot.val(),
         ),
-        name
+        name,
       );
     });
 
-    ref.on("child_removed", function(oldChildSnapshot) {
+    ref.on('child_removed', function(oldChildSnapshot) {
       if (resourcesData[name][oldChildSnapshot.key]) {
         delete resourcesData[name][oldChildSnapshot.key];
       }
     });
 
-    ref.on("child_changed", function(childSnapshot) {
+    ref.on('child_changed', function(childSnapshot) {
       resourcesData[name][childSnapshot.key] = childSnapshot.val();
     });
   };
 
   trackedResources.map(resource => {
     resourcesStatus[resource.name] = new Promise(resolve =>
-      initializeResource(resource, resolve)
+      initializeResource(resource, resolve),
     );
   });
 
@@ -239,7 +239,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   const dataProvider = async (
     type: string,
     resourceName: string,
-    params: AllParams
+    params: AllParams,
   ) => {
     await resourcesStatus[resourceName];
     let result = null;
@@ -250,7 +250,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         result = await getMany(
           params,
           resourceName,
-          resourcesData[resourceName]
+          resourcesData[resourceName],
         );
         return result;
 
@@ -258,7 +258,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         result = await getOne(
           params as GetOneParams,
           resourceName,
-          resourcesData[resourceName]
+          resourcesData[resourceName],
         );
         return result;
 
@@ -275,7 +275,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           patcher,
           auditResource,
           trackedResources[trackedResourcesIndex[resourceName]],
-          firebaseSaveFilter
+          firebaseSaveFilter,
         );
         return result;
       }
@@ -293,7 +293,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           patcher,
           auditResource,
           trackedResources[trackedResourcesIndex[resourceName]],
-          firebaseSaveFilter
+          firebaseSaveFilter,
         );
         return result;
       }
@@ -305,7 +305,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           type,
           resourceName,
           resourcesPaths[resourceName],
-          resourcesData[resourceName]
+          resourcesData[resourceName],
         );
         const currentData = resourcesData[resourceName][itemId] || {};
         const uploads = resourcesUploadFields[resourceName]
@@ -316,8 +316,8 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
                 currentData,
                 itemId,
                 resourceName,
-                resourcesPaths[resourceName]
-              )
+                resourcesPaths[resourceName],
+              ),
             )
           : [];
         const uploadResults = await Promise.all(uploads);
@@ -333,28 +333,41 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           timestampFieldNames,
           patcher,
           auditResource,
-          trackedResources[trackedResourcesIndex[resourceName]]
+          trackedResources[trackedResourcesIndex[resourceName]],
         );
         return result;
       }
       case EXECUTE: {
         if (userActions && userActions.hasOwnProperty(resourceName)) {
-          return await userActions[resourceName](params, {
-            patcher,
-            dataProvider,
-            resourcesData,
-            resourcesPaths,
-            resourcesStatus,
-            userActions,
-            auditResource,
-            timestampFieldNames
-          });
+          const data = [];
+          if (params.data.record) {
+            data.push(params.data.record);
+          } else if (params.data.selectedIds) {
+            data.push(
+              ...params.data.selectedIds.map(
+                r => resourcesData[params.resource][r],
+              ),
+            );
+          }
+          return await userActions[resourceName](
+            { data, resource: params.resource },
+            {
+              patcher,
+              dataProvider,
+              resourcesData,
+              resourcesPaths,
+              resourcesStatus,
+              userActions,
+              auditResource,
+              timestampFieldNames,
+            },
+          );
         } else {
           return;
         }
       }
       default:
-        console.error("Undocumented method: ", type);
+        console.error('Undocumented method: ', type);
         return { data: [] };
     }
   };
