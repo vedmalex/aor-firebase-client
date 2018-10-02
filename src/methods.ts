@@ -160,7 +160,8 @@ const save = async (
   auditResource: string,
   resourceConfig: ResourceConfig,
 ) => {
-  const prevCopy = patcher.clone(previous);
+  const now = Date.now();
+  const dataCopy = patcher.clone(data);
   const currentUser = firebase.auth().currentUser;
   if (uploadResults) {
     uploadResults.map(
@@ -172,7 +173,7 @@ const save = async (
   if (isNew) {
     data = {
       ...data,
-      [timestampFieldNames.createdAt]: Date.now(),
+      [timestampFieldNames.createdAt]: now,
     };
   }
 
@@ -190,60 +191,54 @@ const save = async (
     };
   }
 
-  data = {
-    ...previous,
-    ...data,
-    [timestampFieldNames.updatedAt]: isNew
-      ? data[timestampFieldNames.createdAt]
-      : Date.now(),
-  };
+  if (!isNew) {
+    data = {
+      ...previous,
+      ...data,
+      [timestampFieldNames.updatedAt]: now,
+    };
+  }
 
   if (!data.key) {
     data.key = id;
   }
+
   if (!data.id) {
     data.id = id;
   }
 
-  let changes;
+  let changes: object | boolean = resourceConfig.audit ? undefined : true;
   if (resourceConfig.audit) {
     if (!isNew) {
       const exist = await firebase
         .database()
         .ref(
-          `${auditResource}/${resourcePath}/${data.key}/${
+          `${auditResource}/${resourcePath}/${dataCopy.key}/${
             previous[timestampFieldNames.updatedAt]
           }`,
         )
         .once('value');
 
       changes = exist.val()
-        ? patcher.diff(firebaseSaveFilter(prevCopy), data)
-        : patcher.diff({}, firebaseSaveFilter(data));
+        ? patcher.diff(firebaseSaveFilter(previous), dataCopy)
+        : patcher.diff({}, firebaseSaveFilter(dataCopy));
       // https://firebase.google.com/docs/reference/js/firebase.database.Reference#transaction
-      // backup Data
-      if (changes) {
-        await firebase
-          .database()
-          .ref(
-            `${auditResource}/${resourcePath}/${data.key}/${
-              data[timestampFieldNames.updatedAt]
-            }`,
-          )
-          .update(changes);
-      }
     } else {
-      changes = patcher.diff({}, firebaseSaveFilter(data));
+      changes = patcher.diff({}, firebaseSaveFilter(dataCopy));
+    }
+
+    if (changes) {
       await firebase
         .database()
         .ref(
           `${auditResource}/${resourcePath}/${data.key}/${
-            data[timestampFieldNames.createdAt]
+            data[timestampFieldNames.updatedAt]
           }`,
         )
         .update(changes);
     }
   }
+
   if (changes) {
     await firebase
       .database()
