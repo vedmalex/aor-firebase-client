@@ -9,8 +9,9 @@ export {
   AUTH_LOGIN,
   AUTH_LOGOUT,
   AUTH_CHECK,
-  DELETE_MANY
-} from "react-admin";
+  DELETE_MANY,
+  UPDATE_MANY,
+} from 'react-admin';
 
-const EXECUTE = "EXECUTE";
+const EXECUTE = 'EXECUTE';
 export { EXECUTE };

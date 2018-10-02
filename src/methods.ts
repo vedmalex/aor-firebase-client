@@ -2,7 +2,7 @@ import * as firebase from 'firebase';
 import * as sortBy from 'sort-by';
 import { differenceBy, set, get } from 'lodash';
 import { CREATE } from './reference';
-import { GetOneParams } from './params';
+import { GetOneParams, idType } from './params';
 import { DiffPatcher } from 'jsondiffpatch';
 import { ResourceConfig, ResourceStore } from './dataProvider';
 import { FilterData } from './filter';
@@ -13,8 +13,8 @@ export type ImageSize = {
 };
 
 export interface StoreData {
-  id?: string;
-  key?: string;
+  id?: idType;
+  key?: idType;
 }
 
 function getImageSize(file) {
@@ -147,7 +147,7 @@ async function upload(
 }
 
 const save = async (
-  id: string,
+  id: idType,
   data: StoreData,
   previous: object,
   resourceName: string,
@@ -268,35 +268,6 @@ const del = async (
   return { data: { id } };
 };
 
-const delMany = async (
-  ids,
-  resourceName,
-  resourcePath,
-  resourceData,
-  uploadFields,
-  patcher: DiffPatcher,
-  auditResource: string,
-  resourceConfig: ResourceConfig,
-  firebaseSaveFilter: (data) => any,
-) => {
-  const data = (await Promise.all(
-    ids.map(id =>
-      del(
-        id,
-        resourceName,
-        resourcePath,
-        resourceData,
-        uploadFields,
-        patcher,
-        auditResource,
-        resourceConfig,
-        firebaseSaveFilter,
-      ),
-    ),
-  )).map((r: { data: { id: any } }) => r.data.id);
-  return { data };
-};
-
 const getItemID = (params, type, resourceName, resourcePath, resourceData) => {
   let itemId = params.data.id || params.id || params.data.key || params.key;
   if (!itemId) {
@@ -400,7 +371,6 @@ export default {
   upload,
   save,
   del,
-  delMany,
   getItemID,
   getOne,
   getMany,

@@ -14,6 +14,7 @@ import {
   GET_MANY_REFERENCE,
   CREATE,
   UPDATE,
+  UPDATE_MANY,
   DELETE,
   DELETE_MANY,
   EXECUTE,
@@ -125,7 +126,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   const upload = options.upload || Methods.upload;
   const save = options.save || Methods.save;
   const del = options.del || Methods.del;
-  const delMany = options.delMany || Methods.delMany;
   const getItemID = options.getItemID || Methods.getItemID;
   const getOne = options.getOne || Methods.getOne;
   const getMany = options.getMany || Methods.getMany;
@@ -281,21 +281,13 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
       }
 
       case DELETE_MANY: {
-        const uploadFields = resourcesUploadFields[resourceName]
-          ? resourcesUploadFields[resourceName]
-          : [];
-        result = await delMany(
-          (params as DeleteManyParams).ids,
-          resourceName,
-          resourcesPaths[resourceName],
-          resourcesData[resourceName],
-          uploadFields,
-          patcher,
-          auditResource,
-          trackedResources[trackedResourcesIndex[resourceName]],
-          firebaseSaveFilter,
-        );
-        return result;
+        const delParams = (params as DeleteManyParams).ids.map(id => ({
+          id,
+        }));
+        const data = (await Promise.all(
+          delParams.map(p => dataProvider(DELETE, resourceName, p)),
+        )).map((r: { data: { id: any } }) => r.data.id);
+        return { data };
       }
 
       case UPDATE:
@@ -337,6 +329,17 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         );
         return result;
       }
+      case UPDATE_MANY: {
+        const updateParams = (params as DeleteManyParams).ids.map(id => ({
+          id,
+          data: (params as CreateParams).data,
+        }));
+        const data = (await Promise.all(
+          updateParams.map(p => dataProvider(UPDATE, resourceName, p)),
+        )).map((r: { data: { id: any } }) => r.data.id);
+        return { data };
+      }
+
       case EXECUTE: {
         if (userActions && userActions.hasOwnProperty(resourceName)) {
           const data = [];
@@ -350,7 +353,12 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
             );
           }
           return await userActions[resourceName](
-            { data, resource: params.resource },
+            {
+              data,
+              resource: params.resource,
+              record: params.data.record,
+              selectedIds: params.data.selectedIds,
+            },
             {
               patcher,
               dataProvider,
