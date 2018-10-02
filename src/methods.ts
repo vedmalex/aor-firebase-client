@@ -170,20 +170,33 @@ const save = async (
   }
 
   if (isNew) {
-    Object.assign(data, { [timestampFieldNames.createdAt]: Date.now() });
+    data = {
+      ...data,
+      [timestampFieldNames.createdAt]: Date.now(),
+    };
   }
 
   if (isNew && currentUser) {
-    Object.assign(data, { [timestampFieldNames.createdBy]: currentUser.uid });
+    data = {
+      ...data,
+      [timestampFieldNames.createdBy]: currentUser.uid,
+    };
   }
 
   if (!isNew && currentUser) {
-    Object.assign(data, { [timestampFieldNames.updatedBy]: currentUser.uid });
+    data = {
+      ...data,
+      [timestampFieldNames.updatedBy]: currentUser.uid,
+    };
   }
 
-  data = Object.assign(previous, data, {
-    [timestampFieldNames.updatedAt]: Date.now(),
-  });
+  data = {
+    ...previous,
+    ...data,
+    [timestampFieldNames.updatedAt]: isNew
+      ? data[timestampFieldNames.createdAt]
+      : Date.now(),
+  };
 
   if (!data.key) {
     data.key = id;
@@ -192,35 +205,42 @@ const save = async (
     data.id = id;
   }
 
+  let changes;
   if (resourceConfig.audit) {
     if (!isNew) {
       const exist = await firebase
         .database()
         .ref(
           `${auditResource}/${resourcePath}/${data.key}/${
-            data[timestampFieldNames.updatedAt]
+            previous[timestampFieldNames.updatedAt]
           }`,
         )
         .once('value');
 
-      const changes = exist.val()
+      changes = exist.val()
         ? patcher.diff(firebaseSaveFilter(prevCopy), data)
         : patcher.diff({}, firebaseSaveFilter(data));
       // https://firebase.google.com/docs/reference/js/firebase.database.Reference#transaction
       // backup Data
+      if (changes) {
+        await firebase
+          .database()
+          .ref(
+            `${auditResource}/${resourcePath}/${data.key}/${
+              data[timestampFieldNames.updatedAt]
+            }`,
+          )
+          .update(changes);
+      }
+    } else {
+      changes = patcher.diff({}, firebaseSaveFilter(data));
       await firebase
         .database()
         .ref(
           `${auditResource}/${resourcePath}/${data.key}/${
-            data[timestampFieldNames.updatedAt]
+            data[timestampFieldNames.createdAt]
           }`,
         )
-        .update(changes);
-    } else {
-      const changes = patcher.diff({}, firebaseSaveFilter(data));
-      await firebase
-        .database()
-        .ref(`${auditResource}/${resourcePath}/${data.key}/${Date.now()}`)
         .update(changes);
     }
   }
