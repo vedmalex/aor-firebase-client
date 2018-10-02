@@ -244,11 +244,12 @@ const save = async (
         .update(changes);
     }
   }
-
-  await firebase
-    .database()
-    .ref(`${resourcePath}/${data.key}`)
-    .update(firebaseSaveFilter(data));
+  if (changes) {
+    await firebase
+      .database()
+      .ref(`${resourcePath}/${data.key}`)
+      .update(firebaseSaveFilter(data));
+  }
   return { data };
 };
 
