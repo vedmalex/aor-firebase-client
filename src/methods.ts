@@ -213,15 +213,18 @@ const save = async (
       const exist = await firebase
         .database()
         .ref(
-          `${auditResource}/${resourcePath}/${dataCopy.key}/${
+          `${auditResource}/${resourcePath}/${data.key}/${
             previous[timestampFieldNames.updatedAt]
           }`,
         )
         .once('value');
 
       changes = exist.val()
-        ? patcher.diff(firebaseSaveFilter(previous), dataCopy)
-        : patcher.diff({}, firebaseSaveFilter(dataCopy));
+        ? patcher.diff(firebaseSaveFilter(previous), {
+            ...previous,
+            ...dataCopy,
+          })
+        : patcher.diff({}, firebaseSaveFilter(data));
       // https://firebase.google.com/docs/reference/js/firebase.database.Reference#transaction
     } else {
       changes = patcher.diff({}, firebaseSaveFilter(dataCopy));
