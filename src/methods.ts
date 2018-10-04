@@ -337,7 +337,6 @@ const PrepareFilter = args => {
 };
 
 const getMany = (params, resourceName, resourceData: ResourceStore) => {
-  let ids = [];
   let data = [];
   let total = 0;
 
@@ -345,13 +344,12 @@ const getMany = (params, resourceName, resourceData: ResourceStore) => {
     /** GET_MANY */
     params.ids.map(key => {
       if (resourceData[key]) {
-        ids.push(key);
         data.push(resourceData[key]);
         total++;
       }
       return total;
     });
-    return { data, ids, total };
+    return { data, total };
   } else if (params.pagination) {
     /** GET_LIST / GET_MANY_REFERENCE */
     // let values = [];
@@ -378,9 +376,8 @@ const getMany = (params, resourceName, resourceData: ResourceStore) => {
     const _start = (page - 1) * perPage;
     const _end = page * perPage;
     data = values.slice(_start, _end);
-    ids = keys.slice(_start, _end);
     total = values.length;
-    return { data, ids, total };
+    return { data, total };
   } else {
     throw new Error('Error processing request');
   }
