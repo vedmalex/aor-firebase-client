@@ -135,7 +135,7 @@ export class FilterData {
     },
   };
 
-  public static create(obj, fieldMap: { [key: string]: any } = { id: '_id' }) {
+  public static create(obj, fieldMap: { [key: string]: any } = { id: 'id' }) {
     let filter = FilterData.go(obj, fieldMap);
     // tslint:disable-next-line:no-eval
     return eval(
@@ -147,7 +147,7 @@ export class FilterData {
 
   public static go(
     node: object[] | object,
-    fieldMap: { [key: string]: any } = { id: '_id' },
+    fieldMap: { [key: string]: any } = { id: 'id' },
     id: boolean = false,
     result?,
   ) {
