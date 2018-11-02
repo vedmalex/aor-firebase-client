@@ -21,6 +21,8 @@ import {
 } from './reference';
 import { defaultsDeep } from 'lodash';
 import { DiffPatcher } from 'jsondiffpatch';
+import * as debug from 'debug';
+const log = debug('ra-data-firestore');
 
 /**
  * @param {string[]|Object[]} trackedResources Array of resource names or array of Objects containing name and
@@ -44,6 +46,7 @@ export type SystemFieldsConfigs = {
 };
 
 export type DataConfig = {
+  debug: boolean;
   initialQueryTimeout: number;
   timestampFieldNames: SystemFieldsConfigs;
   auditResource?: string;
@@ -95,13 +98,16 @@ export type ExecutionContext = {
 function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   options = defaultsDeep(options, BaseConfiguration);
   const {
+    debug,
     timestampFieldNames,
     trackedResources,
     initialQueryTimeout,
     auditResource,
     userActions,
   } = options;
-
+  if (debug && localStorage) {
+    localStorage.debug = 'ra-data-firestore';
+  }
   const trackedResourcesIndex = {};
   const noDiff = [timestampFieldNames.updatedAt, timestampFieldNames.createdAt];
 
@@ -241,32 +247,34 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     resourceName: string,
     params: AllParams,
   ) => {
+    log('start', type, resourceName, params);
     await resourcesStatus[resourceName];
-    let result = null;
     switch (type) {
       case GET_LIST:
       case GET_MANY:
-      case GET_MANY_REFERENCE:
-        result = await getMany(
+      case GET_MANY_REFERENCE: {
+        let result = await getMany(
           params,
           resourceName,
           resourcesData[resourceName],
         );
+        log('%s %s %j %j', type, resourceName, params, result);
         return result;
-
-      case GET_ONE:
-        result = await getOne(
+      }
+      case GET_ONE: {
+        let result = await getOne(
           params as GetOneParams,
           resourceName,
           resourcesData[resourceName],
         );
+        log('%s %s %j %j', type, resourceName, params, result);
         return result;
-
+      }
       case DELETE: {
         const uploadFields = resourcesUploadFields[resourceName]
           ? resourcesUploadFields[resourceName]
           : [];
-        result = await del(
+        let result = await del(
           (params as DeleteParams).id,
           resourceName,
           resourcesPaths[resourceName],
@@ -277,6 +285,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           trackedResources[trackedResourcesIndex[resourceName]],
           firebaseSaveFilter,
         );
+        log('%s %s %j %j', type, resourceName, params, result);
         return result;
       }
 
@@ -287,7 +296,9 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         const data = (await Promise.all(
           delParams.map(p => dataProvider(DELETE, resourceName, p)),
         )).map((r: { data: { id: any } }) => r.data.id);
-        return { data };
+        let result = { data };
+        log('%s %s %j %j', type, resourceName, params, result);
+        return result;
       }
 
       case UPDATE:
@@ -313,7 +324,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
             )
           : [];
         const uploadResults = await Promise.all(uploads);
-        result = await save(
+        let result = await save(
           itemId,
           (params as CreateParams).data,
           currentData,
@@ -327,9 +338,11 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           auditResource,
           trackedResources[trackedResourcesIndex[resourceName]],
         );
+        log('%s %s %j %j', type, resourceName, params, result);
         return result;
       }
       case UPDATE_MANY: {
+        let result;
         const updateParams = (params as DeleteManyParams).ids.map(id => ({
           id,
           data: (params as CreateParams).data,
@@ -337,7 +350,9 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         const data = (await Promise.all(
           updateParams.map(p => dataProvider(UPDATE, resourceName, p)),
         )).map((r: { data: { id: any } }) => r.data.id);
-        return { data };
+        result = { data };
+        log('%s %s %j %j', type, resourceName, params, result);
+        return result;
       }
 
       case EXECUTE: {
@@ -352,7 +367,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
               ),
             );
           }
-          return await userActions[resourceName](
+          let result = await userActions[resourceName](
             {
               data,
               resource: params.resource,
@@ -370,13 +385,18 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
               timestampFieldNames,
             },
           );
+          log('%s %s %j %j', type, resourceName, params, result);
+          return result;
         } else {
+          log('%s %s %j', type, resourceName, params);
           return;
         }
       }
       default:
-        console.error('Undocumented method: ', type);
-        return { data: [] };
+        log('Undocumented method: %s', type);
+        let result = { data: [] };
+        log('%s %s %j %j', type, resourceName, params, result);
+        return;
     }
   };
   return dataProvider;
