@@ -1,4 +1,8 @@
 import * as firebase from 'firebase';
+import 'firebase/auth';
+import 'firebase/database';
+import 'firebase/storage';
+
 import * as sortBy from 'sort-by';
 import { differenceBy, set, get } from 'lodash';
 import { CREATE } from './reference';
@@ -66,13 +70,15 @@ async function upload(
       result[fieldName] = [];
     }
 
-    files.filter(f => !f.rawFile).forEach(f => {
-      if (uploadFileArray) {
-        result[fieldName][files.indexOf(f)] = f;
-      } else {
-        result[fieldName] = f;
-      }
-    });
+    files
+      .filter(f => !f.rawFile)
+      .forEach(f => {
+        if (uploadFileArray) {
+          result[fieldName][files.indexOf(f)] = f;
+        } else {
+          result[fieldName] = f;
+        }
+      });
 
     const rawFiles = files.filter(f => f.rawFile);
     for (let i = 0; i < rawFiles.length; i++) {
@@ -121,15 +127,14 @@ async function upload(
     if (removeFromStore.length > 0) {
       try {
         await Promise.all(
-          removeFromStore.map(
-            file =>
-              file && file.path
-                ? firebase
-                    .storage()
-                    .ref()
-                    .child(file.path)
-                    .delete()
-                : true,
+          removeFromStore.map(file =>
+            file && file.path
+              ? firebase
+                  .storage()
+                  .ref()
+                  .child(file.path)
+                  .delete()
+              : true,
           ),
         );
       } catch (e) {
@@ -164,9 +169,8 @@ const save = async (
   const dataCopy = patcher.clone(data);
   const currentUser = firebase.auth().currentUser;
   if (uploadResults) {
-    uploadResults.map(
-      uploadResult =>
-        uploadResult ? Object.assign(data, uploadResult) : false,
+    uploadResults.map(uploadResult =>
+      uploadResult ? Object.assign(data, uploadResult) : false,
     );
   }
 

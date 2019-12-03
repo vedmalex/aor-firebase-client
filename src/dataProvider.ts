@@ -1,4 +1,8 @@
-import * as firebase from 'firebase';
+import * as firebase from 'firebase/app';
+import 'firebase/database';
+import 'firebase/storage';
+import 'firebase/app';
+
 import Methods from './methods';
 import {
   AllParams,
@@ -293,9 +297,11 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         const delParams = (params as DeleteManyParams).ids.map(id => ({
           id,
         }));
-        const data = (await Promise.all(
-          delParams.map(p => dataProvider(DELETE, resourceName, p)),
-        )).map((r: { data: { id: any } }) => r.data.id);
+        const data = (
+          await Promise.all(
+            delParams.map(p => dataProvider(DELETE, resourceName, p)),
+          )
+        ).map((r: { data: { id: any } }) => r.data.id);
         let result = { data };
         log('%s %s %j %j', type, resourceName, params, result);
         return result;
@@ -347,9 +353,11 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           id,
           data: (params as CreateParams).data,
         }));
-        const data = (await Promise.all(
-          updateParams.map(p => dataProvider(UPDATE, resourceName, p)),
-        )).map((r: { data: { id: any } }) => r.data.id);
+        const data = (
+          await Promise.all(
+            updateParams.map(p => dataProvider(UPDATE, resourceName, p)),
+          )
+        ).map((r: { data: { id: any } }) => r.data.id);
         result = { data };
         log('%s %s %j %j', type, resourceName, params, result);
         return result;

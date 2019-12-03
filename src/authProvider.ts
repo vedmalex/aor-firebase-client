@@ -1,6 +1,8 @@
 /* globals localStorage */
 import { AUTH_LOGIN, AUTH_LOGOUT, AUTH_CHECK } from './reference';
-import * as firebase from 'firebase';
+import * as firebase from 'firebase/app';
+import 'firebase/auth';
+import 'firebase/database';
 
 export interface AuthConfig<T = any> {
   userProfilePath: string;
@@ -21,7 +23,7 @@ export interface UserInfo<T = any> {
 const baseConfig: AuthConfig = {
   userProfilePath: '/users/',
   userAdminProp: 'isAdmin',
-  localStorageTokenName: 'aorFirebaseClientToken',
+  localStorageTokenName: 'ra-data-firestore',
   handleAuthStateChange: async (auth: firebase.User, config: AuthConfig) => {
     console.log(`auth`, auth);
     if (auth) {
@@ -81,9 +83,9 @@ function authConfig(config: AuthConfig) {
       let auth = firebase.auth().currentUser;
 
       if (!auth || !alreadySignedIn) {
-        auth = (await firebase
-          .auth()
-          .signInWithEmailAndPassword(username, password)).user;
+        auth = (
+          await firebase.auth().signInWithEmailAndPassword(username, password)
+        ).user;
       }
 
       return config.handleAuthStateChange(auth, config);
