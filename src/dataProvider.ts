@@ -1,5 +1,5 @@
 import * as firebase from 'firebase/app';
-import 'firebase/database';
+import 'firebase/firestore';
 import 'firebase/storage';
 import 'firebase/app';
 
@@ -21,7 +21,6 @@ import {
   UPDATE_MANY,
   DELETE,
   DELETE_MANY,
-  EXECUTE,
 } from './reference';
 import { defaultsDeep } from 'lodash';
 import { DiffPatcher } from 'jsondiffpatch';
@@ -35,11 +34,11 @@ const log = debug('ra-data-firestore');
  */
 
 export interface ResourceConfig {
-  audit: boolean;
   name: string;
   path: string;
   isPublic?: boolean;
   uploadFields: string[];
+  collections?: (string | ResourceConfig)[];
 }
 
 export type SystemFieldsConfigs = {
@@ -53,11 +52,9 @@ export type DataConfig = {
   debug: boolean;
   initialQueryTimeout: number;
   timestampFieldNames: SystemFieldsConfigs;
-  auditResource?: string;
   trackedResources: ResourceConfig[];
   firebaseSaveFilter: (data, name?) => any;
   firebaseGetFilter: (data, name?) => any;
-  userActions?: CustomActionConfig;
 } & typeof Methods;
 
 const BaseConfiguration: Partial<DataConfig> = {
@@ -68,12 +65,6 @@ const BaseConfiguration: Partial<DataConfig> = {
     updatedAt: 'updatedAt',
     updatedBy: 'updatedBy',
   },
-  auditResource: 'backup',
-  userActions: {},
-};
-
-export type CustomActionConfig = {
-  [name: string]: (params, context) => Promise<any>;
 };
 
 export type ResourceStore = {
@@ -84,31 +75,9 @@ export type ResourceDataStore = {
   [resource: string]: ResourceStore;
 };
 
-export type ExecutionContext = {
-  patcher: DiffPatcher;
-  dataProvider: (
-    type: string,
-    resourceName: string,
-    params: AllParams,
-  ) => Promise<any>;
-  resourcesData: ResourceDataStore;
-  resourcesPaths: { [resource: string]: string };
-  resourcesStatus: Promise<any>;
-  userActions: CustomActionConfig;
-  auditResource: string;
-  timestampFieldNames: SystemFieldsConfigs;
-};
-
 function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   options = defaultsDeep(options, BaseConfiguration);
-  const {
-    debug,
-    timestampFieldNames,
-    trackedResources,
-    initialQueryTimeout,
-    auditResource,
-    userActions,
-  } = options;
+  const { debug, timestampFieldNames, trackedResources } = options;
   if (debug && localStorage) {
     localStorage.debug = 'ra-data-firestore';
   }
@@ -122,8 +91,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   });
 
   const resourcesStatus = {};
-  const resourcesReferences = {};
-  const resourcesData = {};
   const resourcesPaths = {};
   const resourcesUploadFields = {};
 
@@ -139,6 +106,8 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   const getItemID = options.getItemID || Methods.getItemID;
   const getOne = options.getOne || Methods.getOne;
   const getMany = options.getMany || Methods.getMany;
+  const getManyReference = options.getManyReference || Methods.getManyReference;
+  const getList = options.getList || Methods.getList;
 
   const firebaseSaveFilter = options.firebaseSaveFilter
     ? options.firebaseSaveFilter
@@ -154,7 +123,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         name: resource,
         path: resource,
         uploadFields: [],
-        audit: true,
       };
       trackedResources[index] = resource;
     } else {
@@ -173,70 +141,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     }
     resourcesUploadFields[name] = uploadFields || [];
     resourcesPaths[name] = path || name;
-    resourcesData[name] = {};
-  });
-
-  const initializeResource = ({ name, isPublic }: ResourceConfig, resolve) => {
-    let ref = (resourcesReferences[name] = firebase
-      .database()
-      .ref(resourcesPaths[name]));
-    resourcesData[name] = [];
-    if (isPublic) {
-      subscribeResource(ref, name, resolve);
-    } else {
-      firebase.auth().onAuthStateChanged(auth => {
-        if (auth) {
-          subscribeResource(ref, name, resolve);
-        }
-      });
-    }
-    setTimeout(resolve, initialQueryTimeout);
-  };
-
-  const subscribeResource = (ref, name, resolve) => {
-    ref.once('value', function(childSnapshot) {
-      /** Uses "value" to fetch initial data. Avoid the AOR to show no results */
-      if (childSnapshot.key === name) {
-        const entries = childSnapshot.val() || {};
-        Object.keys(entries).map(key => {
-          resourcesData[name][key] = firebaseGetFilter(entries[key], name);
-        });
-        Object.keys(resourcesData[name]).forEach(itemKey => {
-          resourcesData[name][itemKey].id = itemKey;
-          resourcesData[name][itemKey].key = itemKey;
-        });
-        resolve();
-      }
-    });
-    ref.on('child_added', function(childSnapshot) {
-      resourcesData[name][childSnapshot.key] = firebaseGetFilter(
-        Object.assign(
-          {},
-          {
-            id: childSnapshot.key,
-            key: childSnapshot.key,
-          },
-          childSnapshot.val(),
-        ),
-        name,
-      );
-    });
-
-    ref.on('child_removed', function(oldChildSnapshot) {
-      if (resourcesData[name][oldChildSnapshot.key]) {
-        delete resourcesData[name][oldChildSnapshot.key];
-      }
-    });
-
-    ref.on('child_changed', function(childSnapshot) {
-      resourcesData[name][childSnapshot.key] = childSnapshot.val();
-    });
-  };
-
-  trackedResources.map(resource => {
-    resourcesStatus[resource.name] = new Promise(resolve =>
-      initializeResource(resource, resolve),
-    );
   });
 
   /**
@@ -254,25 +158,40 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     log('start', type, resourceName, params);
     await resourcesStatus[resourceName];
     switch (type) {
-      case GET_LIST:
-      case GET_MANY:
       case GET_MANY_REFERENCE: {
-        let result = await getMany(
+        const result = await getManyReference(
           params,
-          resourceName,
-          resourcesData[resourceName],
+          resourcesPaths[resourceName],
         );
         log('%s %s %j %j', type, resourceName, params, result);
-        return result;
+        return {
+          data: result.data.map(d => firebaseGetFilter(d, resourceName)),
+        };
+      }
+      case GET_LIST: {
+        const result = await getList(params, resourcesPaths[resourceName]);
+        log('%s %s %j %j', type, resourceName, params, result);
+        return {
+          data: result.data.map(d => firebaseGetFilter(d, resourceName)),
+          total: result.total,
+        };
+      }
+      case GET_MANY: {
+        let result = await getMany(params, resourcesPaths[resourceName]);
+        log('%s %s %j %j', type, resourceName, params, result);
+        return {
+          data: result.data.map(d => firebaseGetFilter(d, resourceName)),
+        };
       }
       case GET_ONE: {
         let result = await getOne(
           params as GetOneParams,
-          resourceName,
-          resourcesData[resourceName],
+          resourcesPaths[resourceName],
         );
         log('%s %s %j %j', type, resourceName, params, result);
-        return result;
+        return {
+          data: firebaseGetFilter(result.data, resourceName),
+        };
       }
       case DELETE: {
         const uploadFields = resourcesUploadFields[resourceName]
@@ -280,12 +199,8 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           : [];
         let result = await del(
           (params as DeleteParams).id,
-          resourceName,
           resourcesPaths[resourceName],
-          resourcesData[resourceName],
           uploadFields,
-          patcher,
-          auditResource,
           trackedResources[trackedResourcesIndex[resourceName]],
           firebaseSaveFilter,
         );
@@ -309,14 +224,13 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
 
       case UPDATE:
       case CREATE: {
-        let itemId = getItemID(
-          params,
-          type,
-          resourceName,
-          resourcesPaths[resourceName],
-          resourcesData[resourceName],
-        );
-        const currentData = resourcesData[resourceName][itemId] || {};
+        let itemId = getItemID(params, resourcesPaths[resourceName]);
+        const item = await firebase
+          .firestore()
+          .collection(resourcesPaths[resourceName])
+          .doc(itemId)
+          .get();
+        const currentData = item.exists ? item.data() : {};
         const uploads = resourcesUploadFields[resourceName]
           ? resourcesUploadFields[resourceName].map(field =>
               upload(
@@ -324,7 +238,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
                 (params as CreateParams).data,
                 currentData,
                 itemId,
-                resourceName,
                 resourcesPaths[resourceName],
               ),
             )
@@ -340,12 +253,10 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           uploadResults,
           type === CREATE,
           timestampFieldNames,
-          patcher,
-          auditResource,
           trackedResources[trackedResourcesIndex[resourceName]],
         );
         log('%s %s %j %j', type, resourceName, params, result);
-        return result;
+        return firebaseGetFilter(result, resourceName);
       }
       case UPDATE_MANY: {
         let result;
@@ -363,43 +274,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         return result;
       }
 
-      case EXECUTE: {
-        if (userActions && userActions.hasOwnProperty(resourceName)) {
-          const data = [];
-          if (params.data.record) {
-            data.push(params.data.record);
-          } else if (params.data.selectedIds) {
-            data.push(
-              ...params.data.selectedIds.map(
-                r => resourcesData[params.resource][r],
-              ),
-            );
-          }
-          let result = await userActions[resourceName](
-            {
-              data,
-              resource: params.resource,
-              record: params.data.record,
-              selectedIds: params.data.selectedIds,
-            },
-            {
-              patcher,
-              dataProvider,
-              resourcesData,
-              resourcesPaths,
-              resourcesStatus,
-              userActions,
-              auditResource,
-              timestampFieldNames,
-            },
-          );
-          log('%s %s %j %j', type, resourceName, params, result);
-          return result;
-        } else {
-          log('%s %s %j', type, resourceName, params);
-          return;
-        }
-      }
       default:
         log('Undocumented method: %s', type);
         let result = { data: [] };

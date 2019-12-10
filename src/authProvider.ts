@@ -21,17 +21,18 @@ export interface UserInfo<T = any> {
 }
 
 const baseConfig: AuthConfig = {
-  userProfilePath: '/users/',
+  userProfilePath: 'users',
   userAdminProp: 'isAdmin',
   localStorageTokenName: 'ra-data-firestore',
   handleAuthStateChange: async (auth: firebase.User, config: AuthConfig) => {
     console.log(`auth`, auth);
     if (auth) {
       const snapshot = await firebase
-        .database()
-        .ref(config.userProfilePath + auth.uid)
-        .once('value');
-      const profile = snapshot.val();
+        .firestore()
+        .collection(config.userProfilePath)
+        .doc(auth.uid)
+        .get();
+      const profile = snapshot.data();
 
       if (profile && profile[config.userAdminProp]) {
         const firebaseToken = await auth.getIdToken();

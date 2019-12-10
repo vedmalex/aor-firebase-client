@@ -1,6 +1,6 @@
 import * as firebase from 'firebase';
 import 'firebase/auth';
-import 'firebase/database';
+import 'firebase/firestore';
 import 'firebase/storage';
 
 import * as sortBy from 'sort-by';
@@ -10,6 +10,7 @@ import { GetOneParams, idType } from './params';
 import { DiffPatcher } from 'jsondiffpatch';
 import { ResourceConfig, ResourceStore } from './dataProvider';
 import { FilterData } from './filter';
+import undefined = require('firebase/auth');
 
 export type ImageSize = {
   width: any;
@@ -51,7 +52,6 @@ async function upload(
   submittedData: object,
   previousData: object,
   id: string,
-  resourceName: string,
   resourcePath: string,
 ) {
   if (submittedData[fieldName]) {
@@ -151,6 +151,61 @@ async function upload(
   return false;
 }
 
+type subcollectionPayload = {
+  name: string;
+  data: StoreData[];
+};
+
+async function subCollection(
+  doc: firebase.firestore.DocumentReference,
+  payload: subcollectionPayload,
+) {
+  const batch = firebase.firestore().batch();
+  const collection = doc.collection(payload.name);
+  const alreadyHas = await collection.get();
+
+  const currentIds = payload.data.map(d => d.id);
+  const allDocs = alreadyHas.docs
+    .map(d => (d.exists ? d.data() : undefined))
+    .filter(f => f)
+    .reduce((res, doc) => {
+      res[doc.id] = doc;
+      return res;
+    }, {}) as { [key: string]: firebase.firestore.DocumentData };
+
+  const currentDocs = payload.data.reduce((result, cur) => {
+    result[cur.id] = cur;
+    return result;
+  }, {});
+
+  const allIds = Object.keys(allDocs);
+
+  const toDelete = Object.keys(allDocs).filter(
+    key => currentIds.indexOf(key) > -1,
+  );
+
+  if (toDelete.length > 0) {
+    toDelete.map(id => collection.doc(id)).map(doc => batch.delete(doc));
+  }
+
+  const toInsert = currentIds.filter(id => allIds.indexOf(id) == -1);
+  if (toInsert.length > 0) {
+    toInsert.map(id => {
+      const doc = collection.doc(id);
+      batch.set(doc, currentDocs[id]);
+    });
+  }
+  const toUpdate = currentIds.filter(id => allIds.indexOf(id) > -1);
+  if (toUpdate.length > 0) {
+    toUpdate.map(id => {
+      const doc = collection.doc(id);
+      batch.set(doc, currentDocs[id]);
+    });
+  }
+
+  await batch.commit();
+}
+
 const save = async (
   id: idType,
   data: StoreData,
@@ -161,12 +216,9 @@ const save = async (
   uploadResults,
   isNew,
   timestampFieldNames,
-  patcher: DiffPatcher,
-  auditResource: string,
   resourceConfig: ResourceConfig,
 ) => {
   const now = Date.now();
-  const dataCopy = patcher.clone(data);
   const currentUser = firebase.auth().currentUser;
   if (uploadResults) {
     uploadResults.map(uploadResult =>
@@ -211,58 +263,18 @@ const save = async (
     data.id = id;
   }
 
-  let changes: object | boolean = resourceConfig.audit ? undefined : true;
-  if (resourceConfig.audit) {
-    if (!isNew) {
-      const exist = await firebase
-        .database()
-        .ref(
-          `${auditResource}/${resourcePath}/${data.key}/${
-            previous[timestampFieldNames.updatedAt]
-          }`,
-        )
-        .once('value');
-
-      changes = exist.val()
-        ? patcher.diff(firebaseSaveFilter(previous), {
-            ...previous,
-            ...dataCopy,
-          })
-        : patcher.diff({}, firebaseSaveFilter(data));
-      // https://firebase.google.com/docs/reference/js/firebase.database.Reference#transaction
-    } else {
-      changes = patcher.diff({}, firebaseSaveFilter(dataCopy));
-    }
-
-    if (changes) {
-      await firebase
-        .database()
-        .ref(
-          `${auditResource}/${resourcePath}/${data.key}/${
-            data[timestampFieldNames.updatedAt]
-          }`,
-        )
-        .update(changes);
-    }
-  }
-
-  if (changes) {
-    await firebase
-      .database()
-      .ref(`${resourcePath}/${data.key}`)
-      .update(firebaseSaveFilter(data));
-  }
+  await firebase
+    .firestore()
+    .collection(resourcePath)
+    .doc(data.key.toString())
+    .set(firebaseSaveFilter(data));
   return { data };
 };
 
 const del = async (
   id,
-  resourceName,
   resourcePath,
-  resourceData,
   uploadFields,
-  patcher: DiffPatcher,
-  auditResource: string,
   resourceConfig: ResourceConfig,
   firebaseSaveFilter: (data) => any,
 ) => {
@@ -278,47 +290,43 @@ const del = async (
     );
   }
 
-  if (resourceConfig.audit) {
-    await firebase
-      .database()
-      .ref(`${auditResource}/${resourcePath}/${id}/${Date.now()}`)
-      .set(patcher.diff(firebaseSaveFilter(resourceData[id]), {}));
-  }
   await firebase
-    .database()
-    .ref(`${resourcePath}/${id}`)
-    .remove();
+    .firestore()
+    .collection(resourcePath)
+    .doc(id)
+    .delete();
   return { data: { id } };
 };
 
-const getItemID = (params, type, resourceName, resourcePath, resourceData) => {
+const getItemID = (params, resourcePath) => {
   let itemId = params.data.id || params.id || params.data.key || params.key;
   if (!itemId) {
     itemId = firebase
-      .database()
-      .ref()
-      .child(resourcePath)
-      .push().key;
+      .firestore()
+      .collection(resourcePath)
+      .doc().id;
   }
-
-  if (!itemId) {
-    throw new Error('ID is required');
-  }
-
-  if (resourceData && resourceData[itemId] && type === CREATE) {
-    throw new Error('ID already in use');
-  }
-
   return itemId;
 };
 
-const getOne = (
-  params: GetOneParams,
-  resourceName: string,
-  resourceData: object,
-) => {
-  if (params.id && resourceData[params.id]) {
-    return { data: resourceData[params.id] };
+const getOne = async (params: GetOneParams, resourceName: string) => {
+  if (params.id) {
+    let result = await firebase
+      .firestore()
+      .collection(resourceName)
+      .doc(params.id.toString())
+      .get();
+
+    if (result.exists) {
+      const data = result.data();
+
+      if (data && data.id == null) {
+        data['id'] = result.id;
+      }
+      return { data: data };
+    } else {
+      throw new Error('Id not found');
+    }
   } else {
     throw new Error('Key not found');
   }
@@ -340,7 +348,129 @@ const PrepareFilter = args => {
   return FilterData.create(filter);
 };
 
-const getMany = (params, resourceName, resourceData: ResourceStore) => {
+function* sliceArray(array: any[], limit) {
+  if (array.length <= limit) {
+    return [...array];
+  } else {
+    const current = [...array];
+    while (true) {
+      if (current.length === 0) {
+        return;
+      } else {
+        yield array.splice(0, limit - 1);
+      }
+    }
+  }
+}
+
+const getMany = async (params, resourceName) => {
+  // TODO: fix 10 values limit
+  let data = [];
+  for await (let items of sliceArray(params.ids, 10)) {
+    data.push(
+      ...(
+        await firebase
+          .firestore()
+          .collection(resourceName)
+          .where('id', 'in', items)
+          .get()
+      ).docs,
+    );
+  }
+  return { data };
+};
+type getManyReferenceParams = {
+  target: string;
+  id: any;
+  sort: {
+    field: string;
+    order: 'ASC' | 'DESC';
+  };
+  pagination: {
+    page: number;
+    perPage: number;
+  };
+  filter: {
+    [filter: string]: any;
+  };
+};
+const getManyReference = async (
+  params: getManyReferenceParams,
+  resourceName: string,
+) => {
+  if (params.target) {
+    if (!params.filter) params.filter = {};
+    params.filter[params.target] = params.id;
+    let { data, total } = await getList(params, resourceName);
+    return { data, total };
+  } else {
+    throw new Error('Error processing request');
+  }
+};
+
+type getListParams = {
+  sort: {
+    field: string;
+    order: 'ASC' | 'DESC';
+  };
+  pagination: {
+    page: number;
+    perPage: number;
+  };
+  filter: {
+    [filter: string]: any;
+  };
+};
+
+function filterQuery(
+  query: firebase.firestore.Query,
+  filter: {
+    [filter: string]: any;
+  },
+): firebase.firestore.Query {
+  return;
+}
+
+const getList = async (params: getListParams, resourceName) => {
+  debugger;
+  if (params.pagination) {
+    let snapshots = await firebase
+      .firestore()
+      .collection(resourceName)
+      .orderBy(params.sort.field, params.sort.order == 'ASC' ? 'asc' : 'desc')
+      .get();
+    const values = snapshots.docs.map(s => s.data());
+
+    // if (params.filter) {
+    //   values = values.filter(item => {
+    //     let meetsFilters = true;
+    //     for (const key of Object.keys(params.filter)) {
+    //       meetsFilters = item[key] === params.filter[key];
+    //     }
+    //     return meetsFilters;
+    //   });
+    // }
+
+    // if (params.sort) {
+    //   values.sort(
+    //     sortBy(`${params.sort.order === 'ASC' ? '-' : ''}${params.sort.field}`),
+    //   );
+    // }
+
+    const { page, perPage } = params.pagination;
+    const _start = (page - 1) * perPage;
+    const _end = page * perPage;
+    const data = values ? values.slice(_start, _end) : [];
+    const total = values ? values.length : 0;
+    debugger;
+    return { data, total };
+  } else {
+    debugger;
+    throw new Error('Error processing request');
+  }
+};
+
+const _getMany = async (params, resourceName, resourceData: ResourceStore) => {
   let data = [];
   let total = 0;
 
@@ -394,4 +524,6 @@ export default {
   getItemID,
   getOne,
   getMany,
+  getManyReference,
+  getList,
 };

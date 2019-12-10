@@ -4,7 +4,7 @@ export type GetListParams = {
   filter: { [key: string]: any };
 };
 
-export type idType = string | number;
+export type idType = string;
 export type PayloadType = object | any;
 
 export type FilterQuery = { [key: string]: any };
