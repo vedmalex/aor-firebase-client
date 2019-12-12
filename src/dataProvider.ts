@@ -84,12 +84,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
   const trackedResourcesIndex = {};
   const noDiff = [timestampFieldNames.updatedAt, timestampFieldNames.createdAt];
 
-  const patcher = new DiffPatcher({
-    propertyFilter: function(name, context) {
-      return noDiff.indexOf(name) === -1;
-    },
-  });
-
   const resourcesStatus = {};
   const resourcesPaths = {};
   const resourcesUploadFields = {};
@@ -116,6 +110,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     ? options.firebaseGetFilter
     : data => data;
 
+  debugger;
   // Sanitize Resources
   trackedResources.map((resource, index) => {
     if (typeof resource === 'string') {
@@ -130,7 +125,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         name: resource.name || resource.path,
         path: resource.path || resource.name,
         uploadFields: [],
-        audit: true,
       });
     }
     const { name, path, uploadFields } = resource;
@@ -201,8 +195,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           (params as DeleteParams).id,
           resourcesPaths[resourceName],
           uploadFields,
-          trackedResources[trackedResourcesIndex[resourceName]],
-          firebaseSaveFilter,
         );
         log('%s %s %j %j', type, resourceName, params, result);
         return result;
@@ -231,6 +223,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           .doc(itemId)
           .get();
         const currentData = item.exists ? item.data() : {};
+        debugger;
         const uploads = resourcesUploadFields[resourceName]
           ? resourcesUploadFields[resourceName].map(field =>
               upload(
@@ -242,6 +235,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
               ),
             )
           : [];
+
         const uploadResults = await Promise.all(uploads);
         let result = await save(
           itemId,

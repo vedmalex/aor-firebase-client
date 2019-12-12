@@ -1,9 +1,12 @@
 {
   "compilerOptions": {
     "allowJs": true,
-    "target": "es2016",
+    "target": "es2018",
     "module": "commonjs",
-    "lib": ["dom", "esnext"],
+    "lib": [
+      "dom",
+      "esnext"
+    ],
     "moduleResolution": "node",
     "sourceMap": true,
     "declaration": false,
@@ -14,6 +17,11 @@
     "pretty": true,
     "removeComments": true
   },
-  "exclude": ["node_modules", "dist"],
-  "include": ["src/**/*"]
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
+  "include": [
+    "src/**/*"
+  ]
 }

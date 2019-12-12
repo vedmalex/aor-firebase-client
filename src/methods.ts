@@ -5,9 +5,7 @@ import 'firebase/storage';
 
 import * as sortBy from 'sort-by';
 import { differenceBy, set, get } from 'lodash';
-import { CREATE } from './reference';
 import { GetOneParams, idType } from './params';
-import { DiffPatcher } from 'jsondiffpatch';
 import { ResourceConfig, ResourceStore } from './dataProvider';
 import { FilterData } from './filter';
 import undefined = require('firebase/auth');
@@ -54,29 +52,31 @@ async function upload(
   id: string,
   resourcePath: string,
 ) {
-  if (submittedData[fieldName]) {
-    const oldFieldArray = Array.isArray(previousData[fieldName]);
-    const oldFiles = oldFieldArray
-      ? previousData[fieldName]
-      : [previousData[fieldName]];
-    const uploadFileArray = Array.isArray(submittedData[fieldName]);
-    const files = uploadFileArray
-      ? submittedData[fieldName]
-      : [submittedData[fieldName]];
+  if (get(submittedData, fieldName) || get(previousData, fieldName)) {
+    const oldFieldArray = Array.isArray(get(previousData, fieldName));
+    const oldFiles = (oldFieldArray
+      ? get(previousData, fieldName)
+      : [get(previousData, fieldName)]
+    ).filter(f => f);
+    const uploadFileArray = Array.isArray(get(submittedData, fieldName));
+    const files = (uploadFileArray
+      ? get(submittedData, fieldName)
+      : [get(submittedData, fieldName)]
+    ).filter(f => f);
 
     const result = {};
 
     if (uploadFileArray) {
-      result[fieldName] = [];
+      set(result, fieldName, []);
     }
 
     files
       .filter(f => !f.rawFile)
       .forEach(f => {
         if (uploadFileArray) {
-          result[fieldName][files.indexOf(f)] = f;
+          set(result, [fieldName, files.indexOf(f)].join('.'), f);
         } else {
-          result[fieldName] = f;
+          set(result, fieldName, f);
         }
       });
 
@@ -93,9 +93,11 @@ async function upload(
           .child(`${resourcePath}/${id}/${fieldName}/${rawFile.name}`);
 
         const snapshot = await ref.put(rawFile);
-        let curFile: Partial<UploadFile> = uploadFileArray
-          ? (result[fieldName][index] = {})
-          : (result[fieldName] = {});
+        let curFile: Partial<UploadFile> = {};
+        uploadFileArray
+          ? set(result, [fieldName, index].join('.'), curFile)
+          : set(result, fieldName, curFile);
+
         curFile.md5Hash = snapshot.metadata.md5Hash;
         curFile.path = snapshot.metadata.fullPath;
         curFile.name = snapshot.metadata.name;
@@ -119,11 +121,16 @@ async function upload(
     }
     //remove oldFiles && dedupe
     // добавить метаданные для определения названия файла или имя файла можно определять по url!!!!
-    // файлы передавать в папках
+    // файлы передавать в папкахВ
     const removeFromStore = [
-      ...differenceBy(oldFiles, result[fieldName], 'src'),
-      ...differenceBy(oldFiles, result[fieldName], 'md5Hash'),
-    ];
+      ...differenceBy(oldFiles, get(result, fieldName), 'src'),
+      ...differenceBy(oldFiles, get(result, fieldName), 'md5Hash'),
+    ].reduce((result, cur) => {
+      if (result.indexOf(cur) === -1) {
+        result.push(cur);
+      }
+      return result;
+    }, []);
     if (removeFromStore.length > 0) {
       try {
         await Promise.all(
@@ -271,13 +278,7 @@ const save = async (
   return { data };
 };
 
-const del = async (
-  id,
-  resourcePath,
-  uploadFields,
-  resourceConfig: ResourceConfig,
-  firebaseSaveFilter: (data) => any,
-) => {
+const del = async (id, resourcePath, uploadFields) => {
   if (uploadFields.length) {
     await Promise.all(
       uploadFields.map(fieldName =>
