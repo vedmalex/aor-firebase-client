@@ -119,9 +119,7 @@ async function upload(
         }
       }
     }
-    //remove oldFiles && dedupe
-    // добавить метаданные для определения названия файла или имя файла можно определять по url!!!!
-    // файлы передавать в папкахВ
+
     const removeFromStore = [
       ...differenceBy(oldFiles, get(result, fieldName), 'src'),
       ...differenceBy(oldFiles, get(result, fieldName), 'md5Hash'),
@@ -333,21 +331,21 @@ const getOne = async (params: GetOneParams, resourceName: string) => {
   }
 };
 
-const PrepareFilter = args => {
-  const filter = Object.keys(args).reduce((acc, key) => {
-    if (key === 'ids') {
-      return { ...acc, id: { in: args[key] } };
-    }
-    if (key === 'q') {
-      return {
-        ...acc,
-        or: [{ '*': { imatch: args[key] } }],
-      };
-    }
-    return set(acc, key.replace('-', '.'), args[key]);
-  }, {});
-  return FilterData.create(filter);
-};
+// const PrepareFilter = args => {
+//   const filter = Object.keys(args).reduce((acc, key) => {
+//     if (key === 'ids') {
+//       return { ...acc, id: { in: args[key] } };
+//     }
+//     if (key === 'q') {
+//       return {
+//         ...acc,
+//         or: [{ '*': { imatch: args[key] } }],
+//       };
+//     }
+//     return set(acc, key.replace('-', '.'), args[key]);
+//   }, {});
+//   return FilterData.create(filter);
+// };
 
 function* sliceArray(array: any[], limit) {
   if (array.length <= limit) {
@@ -365,7 +363,6 @@ function* sliceArray(array: any[], limit) {
 }
 
 const getMany = async (params, resourceName) => {
-  // TODO: fix 10 values limit
   let data = [];
   for await (let items of sliceArray(params.ids, 10)) {
     data.push(
@@ -380,6 +377,7 @@ const getMany = async (params, resourceName) => {
   }
   return { data };
 };
+
 type getManyReferenceParams = {
   target: string;
   id: any;
@@ -395,6 +393,7 @@ type getManyReferenceParams = {
     [filter: string]: any;
   };
 };
+
 const getManyReference = async (
   params: getManyReferenceParams,
   resourceName: string,
@@ -429,94 +428,100 @@ function filterQuery(
     [filter: string]: any;
   },
 ): firebase.firestore.Query {
-  return;
+  let result: firebase.firestore.Query = query;
+  Object.keys(filter).forEach(key => {
+    const [field, op] = key.split('-');
+    switch (op) {
+      case 'eq':
+      case undefined:
+        result = result.where(field, '==', filter[key]);
+        break;
+      case 'lt':
+        result = result.where(field, '<', filter[key]);
+        break;
+      case 'gt':
+        result = result.where(field, '>', filter[key]);
+        break;
+      case 'lte':
+        result = result.where(field, '<=', filter[key]);
+        break;
+      case 'gte':
+        result = result.where(field, '>=', filter[key]);
+        break;
+      case 'in':
+        result = result.where(field, 'in', filter[key]);
+        break;
+    }
+  });
+  return result;
 }
 
 const getList = async (params: getListParams, resourceName) => {
-  debugger;
-  if (params.pagination) {
-    let snapshots = await firebase
-      .firestore()
-      .collection(resourceName)
-      .orderBy(params.sort.field, params.sort.order == 'ASC' ? 'asc' : 'desc')
-      .get();
-    const values = snapshots.docs.map(s => s.data());
+  let query = firebase
+    .firestore()
+    .collection(resourceName)
+    .orderBy(params.sort.field, params.sort.order == 'ASC' ? 'asc' : 'desc');
 
-    // if (params.filter) {
-    //   values = values.filter(item => {
-    //     let meetsFilters = true;
-    //     for (const key of Object.keys(params.filter)) {
-    //       meetsFilters = item[key] === params.filter[key];
-    //     }
-    //     return meetsFilters;
-    //   });
-    // }
+  query = filterQuery(query, params.filter);
 
-    // if (params.sort) {
-    //   values.sort(
-    //     sortBy(`${params.sort.order === 'ASC' ? '-' : ''}${params.sort.field}`),
-    //   );
-    // }
+  let snapshots = await query.get();
 
-    const { page, perPage } = params.pagination;
-    const _start = (page - 1) * perPage;
-    const _end = page * perPage;
-    const data = values ? values.slice(_start, _end) : [];
-    const total = values ? values.length : 0;
-    debugger;
-    return { data, total };
-  } else {
-    debugger;
-    throw new Error('Error processing request');
-  }
+  const values = snapshots.docs.map(s => s.data());
+
+  const { page, perPage } = params.pagination;
+  const _start = (page - 1) * perPage;
+  const _end = page * perPage;
+  const data = values ? values.slice(_start, _end) : [];
+  const total = values ? values.length : 0;
+  return { data, total };
 };
 
-const _getMany = async (params, resourceName, resourceData: ResourceStore) => {
-  let data = [];
-  let total = 0;
+// const _getMany = async (params, resourceName, resourceData: ResourceStore) => {
+//   let data = [];
+//   let total = 0;
 
-  if (params.ids) {
-    /** GET_MANY */
-    params.ids.map(key => {
-      if (resourceData[key]) {
-        data.push(resourceData[key]);
-        total++;
-      }
-      return total;
-    });
-    return { data, total };
-  } else if (params.pagination) {
-    /** GET_LIST / GET_MANY_REFERENCE */
-    // let values = [];
+//   if (params.ids) {
+//     /** GET_MANY */
+//     params.ids.map(key => {
+//       if (resourceData[key]) {
+//         data.push(resourceData[key]);
+//         total++;
+//       }
+//       return total;
+//     });
+//     return { data, total };
+//   } else if (params.pagination) {
+//     /** GET_LIST / GET_MANY_REFERENCE */
+//     // let values = [];
 
-    // Copy the filter params so we can modify for GET_MANY_REFERENCE support.
-    const filter = params.filter;
+//     // Copy the filter params so we can modify for GET_MANY_REFERENCE support.
+//     const filter = params.filter;
 
-    if (params.target && params.id) {
-      filter[params.target] = params.id;
-    }
+//     if (params.target && params.id) {
+//       filter[params.target] = params.id;
+//     }
 
-    const values: any[] = Object.values(resourceData).filter(
-      PrepareFilter(filter),
-    );
+//     const values: any[] = Object.values(resourceData).filter(
+//       PrepareFilter(filter),
+//     );
 
-    if (params.sort) {
-      values.sort(
-        sortBy(`${params.sort.order === 'ASC' ? '-' : ''}${params.sort.field}`),
-      );
-    }
+//     if (params.sort) {
+//       values.sort(
+//         sortBy(`${params.sort.order === 'ASC' ? '-' : ''}${params.sort.field}`),
+//       );
+//     }
 
-    const keys = values.map(i => i.id);
-    const { page, perPage } = params.pagination;
-    const _start = (page - 1) * perPage;
-    const _end = page * perPage;
-    data = values.slice(_start, _end);
-    total = values.length;
-    return { data, total };
-  } else {
-    throw new Error('Error processing request');
-  }
-};
+//     const keys = values.map(i => i.id);
+//     const { page, perPage } = params.pagination;
+//     const _start = (page - 1) * perPage;
+//     const _end = page * perPage;
+//     data = values.slice(_start, _end);
+//     total = values.length;
+//     return { data, total };
+//   } else {
+//     throw new Error('Error processing request');
+//   }
+// };
 
 export default {
   upload,

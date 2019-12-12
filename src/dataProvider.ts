@@ -110,7 +110,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     ? options.firebaseGetFilter
     : data => data;
 
-  debugger;
   // Sanitize Resources
   trackedResources.map((resource, index) => {
     if (typeof resource === 'string') {
@@ -223,7 +222,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
           .doc(itemId)
           .get();
         const currentData = item.exists ? item.data() : {};
-        debugger;
         const uploads = resourcesUploadFields[resourceName]
           ? resourcesUploadFields[resourceName].map(field =>
               upload(
