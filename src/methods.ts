@@ -331,21 +331,21 @@ const getOne = async (params: GetOneParams, resourceName: string) => {
   }
 };
 
-// const PrepareFilter = args => {
-//   const filter = Object.keys(args).reduce((acc, key) => {
-//     if (key === 'ids') {
-//       return { ...acc, id: { in: args[key] } };
-//     }
-//     if (key === 'q') {
-//       return {
-//         ...acc,
-//         or: [{ '*': { imatch: args[key] } }],
-//       };
-//     }
-//     return set(acc, key.replace('-', '.'), args[key]);
-//   }, {});
-//   return FilterData.create(filter);
-// };
+const PrepareFilter = args => {
+  const filter = Object.keys(args).reduce((acc, key) => {
+    if (key === 'ids') {
+      return { ...acc, id: { in: args[key] } };
+    }
+    if (key === 'q') {
+      return {
+        ...acc,
+        or: [{ '*': { imatch: args[key] } }],
+      };
+    }
+    return set(acc, key.replace('-', '.'), args[key]);
+  }, {});
+  return FilterData.create(filter);
+};
 
 function* sliceArray(array: any[], limit) {
   if (array.length <= limit) {
@@ -456,7 +456,7 @@ function filterQuery(
   return result;
 }
 
-const getList = async (params: getListParams, resourceName) => {
+const getList_native = async (params: getListParams, resourceName) => {
   let query = firebase
     .firestore()
     .collection(resourceName)
@@ -474,6 +474,34 @@ const getList = async (params: getListParams, resourceName) => {
   const data = values ? values.slice(_start, _end) : [];
   const total = values ? values.length : 0;
   return { data, total };
+};
+
+const getList = async (params: getListParams, resourceName) => {
+  let snapshots = await firebase
+    .firestore()
+    .collection(resourceName)
+    .get();
+
+  const result = snapshots.docs.map(s => s.data());
+
+  const values: any[] = Object.values(result).filter(
+    PrepareFilter(params.filter),
+  );
+
+  if (params.sort) {
+    values.sort(
+      sortBy(`${params.sort.order === 'ASC' ? '-' : ''}${params.sort.field}`),
+    );
+  }
+  const { page, perPage } = params.pagination;
+  const _start = (page - 1) * perPage;
+  const _end = page * perPage;
+  const data = values ? values.slice(_start, _end) : [];
+  const total = values ? values.length : 0;
+  return {
+    data,
+    total,
+  };
 };
 
 // const _getMany = async (params, resourceName, resourceData: ResourceStore) => {
