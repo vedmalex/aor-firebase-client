@@ -126,6 +126,9 @@ export default App;
 ```
 
 ## Changelog
+### v1.1.0 
+- firestore supports
+- drop firebase support
 
 ### v0.0.10
 
