@@ -1,137 +1,177 @@
 export class FilterData {
   public static operations = {
-    eq(value, fieldMap, id) {
+    eq(value, id) {
       if (value instanceof Date) {
-        return `value.valueOf == ${value.valueOf()}`;
+        return `value ? (value.valueOf == ${value.valueOf()}) : false`;
       } else {
-        return `value${id ? '.toString()' : ''} == ${JSON.stringify(value)}`;
+        return `value ? (value${id ? '.toString()' : ''} == ${JSON.stringify(
+          value,
+        )}) : false`;
       }
     },
-    size(value, fieldMap, id) {
+    size(value) {
       if (value) {
-        return `value.length === ${value}`;
+        return `value ? (value.length === ${value}) : false`;
       }
     },
-    gt(value, fieldMap, id) {
+    gt(value, id) {
       if (value instanceof Date) {
-        return `value.valueOf > ${value.valueOf()}`;
+        return `value ? (value.valueOf > ${value.valueOf()}) : false`;
       } else {
-        return `value${id ? '.toString()' : ''} > ${JSON.stringify(value)}`;
+        return `value ?( value${id ? '.toString()' : ''} > ${JSON.stringify(
+          value,
+        )}) : false`;
       }
     },
-    gte(value, fieldMap, id) {
+    gte(value, id) {
       if (value instanceof Date) {
-        return `value.valueOf >= ${value.valueOf()}`;
+        return `value ? (value.valueOf >= ${value.valueOf()}) : false`;
       } else {
-        return `value${id ? '.toString()' : ''} >= ${JSON.stringify(value)}`;
+        return `value ? (value${id ? '.toString()' : ''} >= ${JSON.stringify(
+          value,
+        )}) : false`;
       }
     },
-    lt(value, fieldMap, id) {
+    lt(value, id) {
       if (value instanceof Date) {
-        return `value.valueOf < ${value.valueOf()}`;
+        return `value ? (value.valueOf < ${value.valueOf()}) : false`;
       } else {
-        return `value${id ? '.toString()' : ''} < ${JSON.stringify(value)}`;
+        return `value ? (value${id ? '.toString()' : ''} < ${JSON.stringify(
+          value,
+        )}) : false`;
       }
     },
-    lte(value, fieldMap, id) {
+    lte(value, id) {
       if (value instanceof Date) {
-        return `value.valueOf <= ${value.valueOf()}`;
+        return `value ? (value.valueOf <= ${value.valueOf()}) : false`;
       } else {
-        return `value${id ? '.toString()' : ''} <= ${JSON.stringify(value)}`;
+        return `value ? (value${id ? '.toString()' : ''} <= ${JSON.stringify(
+          value,
+        )}) : false`;
       }
     },
-    ne(value, fieldMap, id) {
+    ne(value, id) {
       if (value instanceof Date) {
-        return `value.valueOf !== ${value.valueOf()}`;
+        return `value ? (value.valueOf !== ${value.valueOf()}) : false`;
       } else {
-        return `value${id ? '.toString()' : ''} !== ${JSON.stringify(value)}`;
+        return `value ? (value${id ? '.toString()' : ''} !== ${JSON.stringify(
+          value,
+        )}) : false`;
       }
     },
-    in(value, fieldMap, id) {
+    in(value, id) {
       if (value[0] instanceof Date) {
-        return `${JSON.stringify(
+        return `value ? (${JSON.stringify(
           value.map(v => v.valueOf()),
-        )}.indexOf(value) !== -1`;
+        )}.indexOf(value) !== -1) : false`;
       } else {
-        return `${JSON.stringify(value)}.indexOf(value${
+        return `value ? (${JSON.stringify(value)}.indexOf(value${
           id ? '.toString()' : ''
-        }) !== -1`;
+        }) !== -1) : false`;
       }
     },
-    nin(value, fieldMap, id) {
+    nin(value, id) {
       if (value[0] instanceof Date) {
-        return `${JSON.stringify(
+        return `value ? (${JSON.stringify(
           value.map(v => v.valueOf()),
-        )}.indexOf(value) === -1`;
+        )}.indexOf(value) === -1) : false`;
       } else {
-        return `${JSON.stringify(
+        return `value ? (${JSON.stringify(
           id ? value.map(v => v.toString()) : value,
-        )}.indexOf(value${id ? '.toString()' : ''}) === -1`;
+        )}.indexOf(value${id ? '.toString()' : ''}) === -1) : false`;
       }
     },
-    contains(value, fieldMap, id) {
+    contains(value) {
       if (value[0] instanceof Date) {
-        return `value.indexOf(${JSON.stringify(value.valueOf())}) !== -1`;
+        return `value ? (value.indexOf(${JSON.stringify(
+          value.valueOf(),
+        )}) !== -1) : false`;
       } else {
-        return `value.indexOf(${JSON.stringify(value)}) !== -1`;
+        return `value ? (value.indexOf(${JSON.stringify(
+          value,
+        )}) !== -1) : false`;
       }
     },
-    some(value, fieldMap, id) {
+    some(value) {
       if (value[0] instanceof Date) {
-        return `value.some(i => (${JSON.stringify(
+        return `value ? (value.some(i => (${JSON.stringify(
           value.map(v => v.valueOf()),
-        )}.indexOf(i) !== -1))`;
+        )}.indexOf(i) !== -1))) : false`;
       } else {
         return `value.some(i => (${JSON.stringify(value)}.indexOf(i) !== -1))`;
       }
     },
-    every(value, fieldMap, id) {
+    every(value) {
       if (value[0] instanceof Date) {
-        return `value.every(i => (${JSON.stringify(
+        return `value ? (value.every(i => (${JSON.stringify(
           value.map(v => v.valueOf()),
-        )}.indexOf(i) !== -1))`;
+        )}.indexOf(i) !== -1))) : false`;
       } else {
-        return `value.every(i => (${JSON.stringify(value)}.indexOf(i) !== -1))`;
+        return `value ? (value.every(i => (${JSON.stringify(
+          value,
+        )}.indexOf(i) !== -1))) : false`;
       }
     },
-    except(value, fieldMap, id) {
+    except(value) {
       if (value[0] instanceof Date) {
-        return `value.indexOf(${JSON.stringify(value.valueOf())}) === -1`;
+        return `vale ? (value.indexOf(${JSON.stringify(
+          value.valueOf(),
+        )}) === -1) : false`;
       } else {
-        return `value.indexOf(${JSON.stringify(value)}) === -1`;
+        return `value ? (value.indexOf(${JSON.stringify(
+          value,
+        )}) === -1) : false`;
       }
     },
-    none(value, fieldMap, id) {
+    none(value) {
       if (value[0] instanceof Date) {
-        return `value.every(i => (${JSON.stringify(
+        return `value ? (value.every(i => (${JSON.stringify(
           value.map(v => v.valueOf()),
-        )}.indexOf(i) === -1))`;
+        )}.indexOf(i) === -1))) : false`;
       } else {
-        return `value.every(i => (${JSON.stringify(value)}.indexOf(i) === -1))`;
+        return `value ? (value.every(i => (${JSON.stringify(
+          value,
+        )}.indexOf(i) === -1))) : false`;
       }
     },
-    or(value, fieldMap, id) {
-      return '(' + value.map(v => `(${FilterData.go(v)})`).join('||') + ')';
+    or(value) {
+      return (
+        '( value ? (' +
+        value.map(v => `(${FilterData.go(v)})`).join('||') +
+        ') : false )'
+      );
     },
-    and(value, fieldMap, id) {
-      return '(' + value.map(v => `(${FilterData.go(v)})`).join('&&') + ')';
+    and(value) {
+      return (
+        '( value ? (' +
+        value.map(v => `(${FilterData.go(v)})`).join('&&') +
+        ') : false )'
+      );
     },
-    nor(value, fieldMap, id) {
-      return '!(' + value.map(v => `(${FilterData.go(v)})`).join('||') + ')';
+    nor(value) {
+      return (
+        '( value ? !(' +
+        value.map(v => `(${FilterData.go(v)})`).join('||') +
+        ') : false )'
+      );
     },
-    not(value, fieldMap, id) {
-      return '!(' + value.map(v => `(${FilterData.go(v)})`).join('&&') + ')';
+    not(value) {
+      return (
+        '( value ? !(' +
+        value.map(v => `(${FilterData.go(v)})`).join('&&') +
+        ') : false )'
+      );
     },
-    exists(value, fieldMap, id) {
-      return `${
+    exists(value) {
+      return `value ? (${
         value ? '' : '!'
-      }(value !== undefined && value !== null && value !== '')`;
+      }(value !== undefined && value !== null && value !== '')) : false`;
     },
-    match(value, fieldMap, id) {
-      return `(new RegExp("${value}")).test(value.toString())`;
+    match(value) {
+      return `(value ? (new RegExp("${value}")).test(value.toString()) : false)`;
     },
-    imatch(value, fieldMap, id) {
-      return `(new RegExp("${value}","i")).test(value.toString())`;
+    imatch(value) {
+      return `(value ? (new RegExp("${value}","i")).test(value.toString()) : false)`;
     },
   };
 
@@ -163,30 +203,30 @@ export class FilterData {
         result = [];
       }
       let keys = Object.keys(node);
-      keys.forEach((key, index) => {
+      keys.forEach(key => {
         if (FilterData.operations.hasOwnProperty(key)) {
-          result.push(FilterData.operations[key](node[key], fieldMap, id));
+          result.push(FilterData.operations[key](node[key], id));
         } else {
           let idKey = fieldMap.hasOwnProperty(key);
           if (key !== '*') {
             result.push(
               `((value)=>${FilterData.go(node[key], fieldMap, idKey) ||
-                true})(value.${idKey ? fieldMap[key] : key})`,
+                true})(value ? value.${idKey ? fieldMap[key] : key} : false )`,
             );
           } else {
             result.push(
-              `(Object.keys(value).some(key =>(value=>${FilterData.go(
+              ` value ? (Object.keys(value).some(key =>(value=>${FilterData.go(
                 node[key],
                 fieldMap,
                 idKey,
-              ) || true})(value[key])))`,
+              ) || true} : false)(value ? value[key] : false)))`,
             );
           }
         }
       });
       return result.length > 0 ? result : undefined;
     } else {
-      return FilterData.operations.eq(node, fieldMap, id);
+      return FilterData.operations.eq(node, id);
     }
   }
 }

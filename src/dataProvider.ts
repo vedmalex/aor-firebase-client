@@ -159,6 +159,7 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
         log('%s %s %j %j', type, resourceName, params, result);
         return {
           data: result.data.map(d => firebaseGetFilter(d, resourceName)),
+          total: result.total,
         };
       }
       case GET_LIST: {

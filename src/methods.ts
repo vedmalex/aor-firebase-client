@@ -330,20 +330,24 @@ const getOne = async (params: GetOneParams, resourceName: string) => {
     throw new Error('Key not found');
   }
 };
+const prepareFilter = args =>
+  typeof args === 'object' && !Array.isArray(args)
+    ? Object.keys(args).reduce((acc, key) => {
+        if (key === 'ids') {
+          return { ...acc, id: { in: prepareFilter(args[key]) } };
+        }
+        if (key === 'q') {
+          return {
+            ...acc,
+            or: [{ '*': { imatch: prepareFilter(args[key]) } }],
+          };
+        }
+        return set(acc, key.replace('-', '.'), prepareFilter(args[key]));
+      }, {})
+    : args;
 
-const PrepareFilter = args => {
-  const filter = Object.keys(args).reduce((acc, key) => {
-    if (key === 'ids') {
-      return { ...acc, id: { in: args[key] } };
-    }
-    if (key === 'q') {
-      return {
-        ...acc,
-        or: [{ '*': { imatch: args[key] } }],
-      };
-    }
-    return set(acc, key.replace('-', '.'), args[key]);
-  }, {});
+const makeFilter = args => {
+  const filter = prepareFilter(args);
   return FilterData.create(filter);
 };
 
@@ -484,9 +488,7 @@ const getList = async (params: getListParams, resourceName) => {
 
   const result = snapshots.docs.map(s => s.data());
 
-  const values: any[] = Object.values(result).filter(
-    PrepareFilter(params.filter),
-  );
+  const values: any[] = Object.values(result).filter(makeFilter(params.filter));
 
   if (params.sort) {
     values.sort(
