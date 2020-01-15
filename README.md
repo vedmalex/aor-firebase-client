@@ -4,7 +4,7 @@ A react-admin firebase/firestore dataProvider
 
 An [react-admin](https://github.com/marmelab/react-admin) client for [Firebase](https://firebase.google.com).
 
-[![npm version](https://badge.fury.io/js/aor-firebase-client.svg)](https://badge.fury.io/js/aor-firebase-client)
+[![npm version](https://badge.fury.io/js/ra-data-firestore.svg)](https://badge.fury.io/js/ra-data-firestore)
 s
 
 ## Installation
