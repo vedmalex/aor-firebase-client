@@ -125,6 +125,11 @@ export default App;
 ```
 
 ## Changelog
+
+### v2.0.0-beta.1 
+
+- firestore AuthProvider
+
 ### v1.1.0 
 - firestore supports
 - drop firebase support

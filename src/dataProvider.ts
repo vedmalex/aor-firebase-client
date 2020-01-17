@@ -82,7 +82,6 @@ function dataConfig(firebaseConfig = {}, options: Partial<DataConfig> = {}) {
     localStorage.debug = 'ra-data-firestore';
   }
   const trackedResourcesIndex = {};
-  const noDiff = [timestampFieldNames.updatedAt, timestampFieldNames.createdAt];
 
   const resourcesStatus = {};
   const resourcesPaths = {};
