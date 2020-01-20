@@ -1,5 +1,4 @@
-import DataProvider from './dataProvider';
+import DataProvider from './dataProviderV3';
 import AuthProvider from './authProvider';
-import * as Methods from './methods';
 
-export { DataProvider, AuthProvider, Methods };
+export { DataProvider, AuthProvider };

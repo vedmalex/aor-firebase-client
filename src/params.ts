@@ -1,6 +1,6 @@
 export type GetListParams = {
   pagination: { page: number; perPage: number };
-  sort: { field: string; order: string };
+  sort: { field: string; order: 'ASC' | 'DESC' };
   filter: { [key: string]: any };
 };
 
@@ -20,7 +20,6 @@ export type CreateParams = {
 export type UpdateParams = {
   id: idType;
   data: PayloadType;
-  previousData: PayloadType;
 };
 
 export type UpdateManyParam = {
@@ -30,7 +29,6 @@ export type UpdateManyParam = {
 
 export type DeleteParams = {
   id: idType;
-  data: PayloadType;
 };
 
 export type DeleteManyParams = {
@@ -45,19 +43,6 @@ export type GetManyReferenceParams = {
   target: string;
   id: idType;
   pagination: { page: number; perPage: number };
-  sort: { field: string; order: string };
+  sort: { field: string; order: 'ASC' | 'DESC' };
   filter: FilterQuery;
 };
-
-export type ExecutePayload = any;
-
-export type AllParams =
-  | GetOneParams
-  | CreateParams
-  | UpdateParams
-  | UpdateManyParam
-  | DeleteParams
-  | DeleteManyParams
-  | GetManyParams
-  | GetManyReferenceParams
-  | ExecutePayload;
