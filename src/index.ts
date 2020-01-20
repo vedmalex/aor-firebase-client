@@ -1,4 +1,4 @@
 import DataProvider from './dataProviderV3';
 import AuthProvider from './authProvider';
-
-export { DataProvider, AuthProvider };
+import InitFirestore from './initFirestore';
+export { DataProvider, AuthProvider, InitFirestore };
