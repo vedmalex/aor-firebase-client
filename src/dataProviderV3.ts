@@ -87,10 +87,10 @@ export default class {
   trackedResourcesIndex: { [resource: string]: number };
   resourcesPaths: { [resource: string]: string };
   resourcesUploadFields: { [resource: string]: string[] };
-  firebaseGetFilter(data, ..._) {
+  firebaseGetFilter<T>(data: T, ..._) {
     return data;
   }
-  firebaseSaveFilter(data, ..._) {
+  firebaseSaveFilter<T>(data: T, ..._) {
     return data;
   }
   dataProvider() {
@@ -531,7 +531,7 @@ export default class {
       uploadResults,
       true,
     );
-    return this.firebaseGetFilter(result, resource);
+    return this.firebaseGetFilter(result.data, resource);
   }
 
   async update(resource: string, params: UpdateParams) {
@@ -558,7 +558,7 @@ export default class {
       uploadResults,
       false,
     );
-    return this.firebaseGetFilter(result, resource);
+    return this.firebaseGetFilter(result.data, resource);
   }
 
   async updateMany(resource: string, params: UpdateManyParam) {
@@ -569,7 +569,7 @@ export default class {
     }));
     const data = await Promise.all(
       updateParams.map(p => this.update(resource, p)),
-    ).then(r => r.map(d => d.data.id));
+    ).then(r => r.map(d => d.id));
     result = { data };
     log('updateMany %s %j %j', resource, params, result);
     return result;
