@@ -15,15 +15,14 @@ export default (persistence: firebase.auth.Auth.Persistence) => ({
         firebase.auth().signInWithEmailAndPassword(username, password),
       ),
   logout: () => firebase.auth().signOut(),
-  checkAuth: () => {
+  checkAuth: () =>
     firebaseLoaded().then(() => {
       if (firebase.auth().currentUser) {
         return firebase.auth().currentUser.reload();
       } else {
         return Promise.reject();
       }
-    });
-  },
+    }),
   checkError: (error: { code: string; message: string }) =>
     Promise.resolve(error.message),
   getPermissions: () =>

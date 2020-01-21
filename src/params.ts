@@ -1,7 +1,7 @@
 export type GetListParams = {
-  pagination: { page: number; perPage: number };
-  sort: { field: string; order: 'ASC' | 'DESC' };
-  filter: { [key: string]: any };
+  pagination?: { page: number; perPage: number };
+  sort?: { field: string; order: 'ASC' | 'DESC' };
+  filter?: { [key: string]: any };
 };
 
 export type idType = string;
@@ -14,12 +14,12 @@ export type GetOneParams = {
 };
 
 export type CreateParams = {
-  data: PayloadType;
+  data?: PayloadType;
 };
 
 export type UpdateParams = {
   id: idType;
-  data: PayloadType;
+  data?: PayloadType;
 };
 
 export type UpdateManyParam = {
@@ -36,13 +36,13 @@ export type DeleteManyParams = {
 };
 
 export type GetManyParams = {
-  ids: idType;
+  ids: idType[];
 };
 
 export type GetManyReferenceParams = {
   target: string;
   id: idType;
-  pagination: { page: number; perPage: number };
-  sort: { field: string; order: 'ASC' | 'DESC' };
-  filter: FilterQuery;
+  pagination?: { page: number; perPage: number };
+  sort?: { field: string; order: 'ASC' | 'DESC' };
+  filter?: FilterQuery;
 };

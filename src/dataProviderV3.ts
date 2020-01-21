@@ -68,7 +68,7 @@ export interface StoreData {
 export interface dataProviderConfig {
   firestore: firebase.firestore.Firestore;
   storage: firebase.storage.Storage;
-  getUser: () => firebase.User;
+  getUser?: () => firebase.User;
   timestampFieldNames: SystemFieldsConfigs;
   trackedResources: ResourceConfig[];
 }
@@ -93,7 +93,20 @@ export default class {
   firebaseSaveFilter(data, ..._) {
     return data;
   }
-
+  dataProvider() {
+    const dataProvider = {
+      getList: this.getList.bind(this),
+      getOne: this.getOne.bind(this),
+      getMany: this.getMany.bind(this),
+      getManyReference: this.getManyReference.bind(this),
+      create: this.create.bind(this),
+      update: this.update.bind(this),
+      updateMany: this.updateMany.bind(this),
+      delete: this.delete.bind(this),
+      deleteMany: this.deleteMany.bind(this),
+    };
+    return dataProvider;
+  }
   constructor({
     firestore,
     storage,
@@ -140,13 +153,14 @@ export default class {
     });
   }
 
-  async _upload(
+  async upload(
     fieldName: string,
     submittedData: object,
     previousData: object,
     id: string,
-    resourcePath: string,
+    resource: string,
   ) {
+    let resourcePath = this.resourcesPaths[resource];
     if (get(submittedData, fieldName) || get(previousData, fieldName)) {
       const oldFieldArray = Array.isArray(get(previousData, fieldName));
       const oldFiles = (oldFieldArray
@@ -304,16 +318,13 @@ export default class {
     id: idType,
     data: StoreData,
     previous: object,
-    resourceName: string,
-    resourcePath: string,
-    firebaseSaveFilter,
+    resource: string,
     uploadResults,
     isNew,
-    timestampFieldNames,
-    resourceConfig: ResourceConfig,
   ) {
     const now = Date.now();
-    const currentUser = this.getUser();
+    const currentUser = this.getUser && this.getUser();
+
     if (uploadResults) {
       uploadResults.map(uploadResult =>
         uploadResult ? Object.assign(data, uploadResult) : false,
@@ -323,21 +334,21 @@ export default class {
     if (isNew) {
       data = {
         ...data,
-        [timestampFieldNames.createdAt]: now,
+        [this.timestampFieldNames.createdAt]: now,
       };
     }
 
     if (isNew && currentUser) {
       data = {
         ...data,
-        [timestampFieldNames.createdBy]: currentUser.uid,
+        [this.timestampFieldNames.createdBy]: currentUser.uid,
       };
     }
 
     if (!isNew && currentUser) {
       data = {
         ...data,
-        [timestampFieldNames.updatedBy]: currentUser.uid,
+        [this.timestampFieldNames.updatedBy]: currentUser.uid,
       };
     }
 
@@ -345,7 +356,7 @@ export default class {
       data = {
         ...previous,
         ...data,
-        [timestampFieldNames.updatedAt]: now,
+        [this.timestampFieldNames.updatedAt]: now,
       };
     }
 
@@ -358,13 +369,18 @@ export default class {
     }
 
     await this.firestore
-      .collection(resourcePath)
+      .collection(this.resourcesPaths[resource])
       .doc(data.key.toString())
-      .set(firebaseSaveFilter(data));
+      .set(this.firebaseSaveFilter(data));
     return { data };
   }
 
-  async _del(id, resourcePath, uploadFields) {
+  async delete(resource: string, params?: DeleteParams) {
+    const id = params?.id;
+    const uploadFields = this.resourcesUploadFields[resource]
+      ? this.resourcesUploadFields[resource]
+      : [];
+    let resourcePath = this.resourcesPaths[resource];
     if (uploadFields.length) {
       await Promise.all(
         uploadFields.map(fieldName =>
@@ -382,17 +398,18 @@ export default class {
       .delete();
     return { data: { id } };
   }
-  _getItemID(params, resourcePath) {
+  _getItemID(resource: string, params: any) {
     let itemId = params.data.id || params.id || params.data.key || params.key;
     if (!itemId) {
-      itemId = this.firestore.collection(resourcePath).doc().id;
+      itemId = this.firestore.collection(this.resourcesPaths[resource]).doc()
+        .id;
     }
     return itemId;
   }
-  async _getOne(params: GetOneParams, resourceName: string) {
+  async getOne(resource: string, params: GetOneParams) {
     if (params.id) {
       let result = await this.firestore
-        .collection(resourceName)
+        .collection(this.resourcesPaths[resource])
         .doc(params.id.toString())
         .get();
 
@@ -402,7 +419,10 @@ export default class {
         if (data && data.id == null) {
           data['id'] = result.id;
         }
-        return { data: data };
+
+        return {
+          data: this.firebaseGetFilter(result.data, resource),
+        };
       } else {
         throw new Error('Id not found');
       }
@@ -411,164 +431,141 @@ export default class {
     }
   }
 
-  async _getMany(params, resourceName) {
+  async getMany(resource: string, params: GetManyParams) {
     let data = [];
     for await (let items of sliceArray(params.ids, 10)) {
       data.push(
         ...(
           await this.firestore
-            .collection(resourceName)
+            .collection(this.resourcesPaths[resource])
             .where('id', 'in', items)
             .get()
         ).docs,
       );
     }
-    return { data };
+    return {
+      data: data.map(d => this.firebaseGetFilter(d, resource)),
+    };
   }
-  async _getManyReference(
-    resourceName: string,
-    params: GetManyReferenceParams,
-  ) {
-    if (params.target) {
+  async getManyReference(resource: string, params: GetManyReferenceParams) {
+    if (params?.target) {
       if (!params.filter) params.filter = {};
-      params.filter[params.target] = params.id;
-      let { data, total } = await this._getList(params, resourceName);
-      return { data, total };
+      params.filter[params.target] = params?.id;
+      return this.getList(resource, params);
     } else {
       throw new Error('Error processing request');
     }
   }
 
-  async _getListNative(params: GetListParams, resourceName) {
-    let query = this.firestore
-      .collection(resourceName)
-      .orderBy(params.sort.field, params.sort.order == 'ASC' ? 'asc' : 'desc');
+  async getListNative(resource: string, params: GetListParams) {
+    let query: any = this.firestore.collection(this.resourcesPaths[resource]);
 
-    query = filterQuery(query, params.filter);
+    if (params?.sort?.field || params?.sort?.order) {
+      query = query.orderBy(
+        params?.sort?.field,
+        params?.sort?.order == 'ASC' ? 'asc' : 'desc',
+      );
+    }
+    if (params?.filter) {
+      query = filterQuery(query, params.filter);
+    }
 
     let snapshots = await query.get();
 
     const values = snapshots.docs.map(s => s.data());
 
-    const { page, perPage } = params.pagination;
-    const _start = (page - 1) * perPage;
-    const _end = page * perPage;
-    const data = values ? values.slice(_start, _end) : [];
-    const total = values ? values.length : 0;
-    return { data, total };
-  }
-
-  async _getList(params: GetListParams, resourceName) {
-    let snapshots = await this.firestore.collection(resourceName).get();
-
-    const result = snapshots.docs.map(s => s.data());
-
-    const values: any[] = Object.values(result).filter(
-      makeFilter(params.filter),
-    );
-
-    if (params.sort) {
-      values.sort(
-        sortBy(`${params.sort.order === 'ASC' ? '-' : ''}${params.sort.field}`),
-      );
-    }
-    const { page, perPage } = params.pagination;
+    const { page, perPage } = params?.pagination || { page: 1, perPage: 10 };
     const _start = (page - 1) * perPage;
     const _end = page * perPage;
     const data = values ? values.slice(_start, _end) : [];
     const total = values ? values.length : 0;
     return {
-      data,
+      data: data.map(d => this.firebaseGetFilter(d, resource)),
       total,
     };
   }
 
-  async getList(resource: string, params: GetListParams) {
-    const result = await this._getList(params, this.resourcesPaths[resource]);
-    log('getList %s %j %j', resource, params, result);
-    return {
-      data: result.data.map(d => this.firebaseGetFilter(d, resource)),
-      total: result.total,
-    };
-  }
-  async getOne(resource: string, params: GetOneParams) {
-    let result = await this._getOne(
-      params as GetOneParams,
-      this.resourcesPaths[resource],
-    );
-    log('getOne %s %j %j', resource, params, result);
-    return {
-      data: this.firebaseGetFilter(result.data, resource),
-    };
-  }
-  async getMany(resource: string, params: GetManyParams) {
-    let result = await this._getMany(params, this.resourcesPaths[resource]);
-    log('getMany %s %j %j', resource, params, result);
-    return {
-      data: result.data.map(d => this.firebaseGetFilter(d, resource)),
-    };
-  }
-  async getManyReference(resource: string, params: GetManyReferenceParams) {
-    const result = await this._getManyReference(
-      this.resourcesPaths[resource],
-      params,
-    );
-    log('getManyReference %s %j %j', resource, params, result);
-    return {
-      data: result.data.map(d => this.firebaseGetFilter(d, resource)),
-      total: result.total,
-    };
-  }
-  async _createOrUpdate(
-    resource: string,
-    params: CreateParams,
-    create: boolean,
-  ) {
-    let itemId = this._getItemID(params, this.resourcesPaths[resource]);
-    const item = await this.firestore
+  async getList(resource, params: GetListParams) {
+    let snapshots = await this.firestore
       .collection(this.resourcesPaths[resource])
-      .doc(itemId)
       .get();
-    const currentData = item.exists ? item.data() : {};
+
+    const result = snapshots.docs.map(s => s.data());
+
+    const values: any[] = params?.filter
+      ? result.filter(makeFilter(params.filter))
+      : result;
+
+    if (params?.sort) {
+      values.sort(
+        sortBy(`${params.sort.order === 'ASC' ? '-' : ''}${params.sort.field}`),
+      );
+    }
+    const { page, perPage } = params?.pagination || { page: 1, perPage: 10 };
+    const _start = (page - 1) * perPage;
+    const _end = page * perPage;
+    const data = values ? values.slice(_start, _end) : [];
+    const total = values ? values.length : 0;
+
+    return {
+      data: data.map(d => this.firebaseGetFilter(d, resource)),
+      total,
+    };
+  }
+
+  async create(resource: string, params: CreateParams) {
+    let itemId = this._getItemID(resource, params);
+
     const uploads = this.resourcesUploadFields[resource]
       ? this.resourcesUploadFields[resource].map(field =>
-          this._upload(
-            field,
-            (params as CreateParams).data,
-            currentData,
-            itemId,
-            this.resourcesPaths[resource],
-          ),
+          this.upload(field, params?.data, {}, itemId, resource),
         )
       : [];
 
     const uploadResults = await Promise.all(uploads);
     let result = await this._save(
       itemId,
-      (params as CreateParams).data,
-      currentData,
+      params.data,
+      {},
       resource,
-      this.resourcesPaths[resource],
-      this.firebaseSaveFilter,
       uploadResults,
-      create,
-      this.timestampFieldNames,
-      this.trackedResources[this.trackedResourcesIndex[resource]],
+      true,
     );
-    log('%s %s %j %j', create ? 'create' : 'update', resource, params, result);
     return this.firebaseGetFilter(result, resource);
   }
-  async create(resource: string, params: UpdateParams) {
-    return this._createOrUpdate(resource, params, true);
-  }
+
   async update(resource: string, params: UpdateParams) {
-    return this._createOrUpdate(resource, params, false);
+    let itemId = this._getItemID(resource, params);
+
+    const item = await this.firestore
+      .collection(this.resourcesPaths[resource])
+      .doc(itemId)
+      .get();
+
+    const currentData = item.exists ? item.data() : {};
+    const uploads = this.resourcesUploadFields[resource]
+      ? this.resourcesUploadFields[resource].map(field =>
+          this.upload(field, params.data, currentData, itemId, resource),
+        )
+      : [];
+
+    const uploadResults = await Promise.all(uploads);
+    let result = await this._save(
+      itemId,
+      params.data,
+      currentData,
+      resource,
+      uploadResults,
+      false,
+    );
+    return this.firebaseGetFilter(result, resource);
   }
+
   async updateMany(resource: string, params: UpdateManyParam) {
     let result;
-    const updateParams = params.ids.map(id => ({
+    const updateParams = params?.ids.map(id => ({
       id,
-      data: (params as CreateParams).data,
+      data: params.data,
     }));
     const data = await Promise.all(
       updateParams.map(p => this.update(resource, p)),
@@ -577,21 +574,9 @@ export default class {
     log('updateMany %s %j %j', resource, params, result);
     return result;
   }
-  async delete(resource: string, params: DeleteParams) {
-    const uploadFields = this.resourcesUploadFields[resource]
-      ? this.resourcesUploadFields[resource]
-      : [];
-    let result = await this._del(
-      params.id,
-      this.resourcesPaths[resource],
-      uploadFields,
-    );
-    log('delete %s %j %j', resource, params, result);
-    return result;
-  }
 
   async deleteMany(resource: string, params: DeleteManyParams) {
-    const delParams = params.ids.map(id => ({
+    const delParams = params?.ids.map(id => ({
       id,
     }));
     const data = (
@@ -609,7 +594,7 @@ function prepareFilter(args) {
         if (key === 'ids') {
           return {
             ...acc,
-            id: { in: this.prepareFilter(args[key]) },
+            id: { in: prepareFilter(args[key]) },
           };
         }
         if (key === 'q') {
@@ -617,12 +602,12 @@ function prepareFilter(args) {
             ...acc,
             or: [
               {
-                '*': { imatch: this.prepareFilter(args[key]) },
+                '*': { imatch: prepareFilter(args[key]) },
               },
             ],
           };
         }
-        return set(acc, key.replace('-', '.'), this.prepareFilter(args[key]));
+        return set(acc, key.replace('-', '.'), prepareFilter(args[key]));
       }, {})
     : args;
 }
